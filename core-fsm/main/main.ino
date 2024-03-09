@@ -58,13 +58,13 @@ void executeCurrentState(){
       currentGameAddress = 0; // get address for game
       shouldEND_SUBGAME = false;
       Wire.beginTransmission(currentGameAddress);
-      Wire.write(0); // START GAME CMD
+      Wire.write('S'); // START GAME CMD
       Wire.endTransmission();
     break;
     case WAIT_SUBGAME:
       // Note - what happens if the game is still running but the global timer has timed out.
       Wire.beginTransmission(currentGameAddress);
-      Wire.write(1); // ARE YOU DONE CMD
+      Wire.write('?'); // ARE YOU DONE CMD
       Wire.endTransmission();
       startWAIT_SUBGAMETime = millis();
       while(millis()-startWAIT_SUBGAMETime<MAX_WAIT_GAME_TIME*1000){
@@ -87,7 +87,7 @@ void executeCurrentState(){
     break;
     case END_ALL_GAMES:
       Wire.write('F'); // Send "Game Is Over" to leaderboard
-      Wire.write(0);   // Any random number.
+      Wire.write(0);   // Any random number. To keep consistent 2 bytes.
       shouldCleanup = false;
       // At this point, leaderboard is waiting for user to type name. 
     break;
