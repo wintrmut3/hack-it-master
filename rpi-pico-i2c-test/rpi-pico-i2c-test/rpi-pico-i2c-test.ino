@@ -3,12 +3,13 @@
 void I2C_RxHandler(int numBytes)
 {
   Serial.print("RX ");
+  Serial.print(numBytes);
   int byteCtr = 0;
   byte cmdByte, RxByte;
   while(Wire.available()) {  // Read Any Received Data
     
     RxByte = Wire.read();
-
+    
     if(byteCtr == 0){
       // expect RxByte == 'U' (update )or 'F' (finalize)
       cmdByte = RxByte;
@@ -24,6 +25,7 @@ void I2C_RxHandler(int numBytes)
         Serial.println(RxByte); 
       }
     }
+    byteCtr++;
 
   }
 }
@@ -40,8 +42,6 @@ void setup() {
   
   
   Wire.begin(0x33); // start as address 0x33
-  // Wire.begin(0, I2C_SCL);
-
   Wire.onReceive(I2C_RxHandler);
 }
 

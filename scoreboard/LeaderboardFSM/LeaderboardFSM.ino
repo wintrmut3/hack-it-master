@@ -1,11 +1,12 @@
 #include "LedControl.h"
 #include <LittleFS_Mbed_RP2040.h>
 #include <string.h>
+#include <Wire.h>
 
 #define KEY_SELECT 10
 #define KEY_ACCEPT 11
-
-#define RESET_LEADERBOARD_SWITCH 1 // define and upload to run reset program
+#define I2C_SLAVE_ADDRESS 0x10
+// #define RESET_LEADERBOARD_SWITCH // define and upload to run reset program
 
 /*
  Now we need a LedControl to work with.
@@ -16,7 +17,7 @@
  We have only a single MAX72XX.
  K M V W X cannot be displayed
  */
-LedControl lc = LedControl(2, 4, 3, 1);
+LedControl lc = LedControl(2, 6, 3, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
 LedControl lc1 = LedControl(7, 9, 8, 1);
 LedControl lc2 = LedControl(14, 19, 18, 1);
 LedControl lc3 = LedControl(20, 22, 21, 1);
@@ -48,9 +49,19 @@ enum States {
   PLAYER_INPUT
 };
 
-const char * stateNames[]  = {"INITIALIZE", "UPDATE_SCORE", "PLAYER_INPUT"};
+const char *stateNames[] = { "INITIALIZE", "UPDATE_SCORE", "PLAYER_INPUT" };
 
 enum States currentState = INITIALIZE;
+
+//i2c mailbox to be polled
+struct i2c_data {
+  int scoreUpdate = 0;  // 0 to 255 if valid, -1 if we want to send a gameover signal
+  bool isFreshData = false;
+};
+
+struct i2c_data i2c_mailbox;
+
+
 
 /*
 Storing leaderboard as:
@@ -61,6 +72,66 @@ XXX[]YYYY
 // 0 - Initialized - (updated) leaderboard showing, input OFF
 // 1 - Game Start - score being updated using receiving updates from Master, input OFF
 // 2 - Game End - input ON, keys getting scanned
+
+void blinkLED(int times = 1, int ms = 100) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(ms);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(ms);
+
+  }
+}
+
+void I2C_RxHandler(int numBytes) {
+  blinkLED(); // blink once on data recv
+
+  Serial.print("RX ");
+  Serial.print(numBytes);
+  int byteCtr = 0;
+  byte cmdByte, RxByte;
+  while (Wire.available()) {  // Read Any Received Data
+    RxByte = Wire.read();
+    if (byteCtr == 0) {
+      // expect RxByte == 'U' (update )or 'F' (finalize)
+      cmdByte = RxByte;
+    } else {
+      // expect a score update
+      if (cmdByte == 'U') {
+        Serial.print("Score update recieved: +");
+        Serial.println(RxByte);
+        i2c_mailbox.scoreUpdate = RxByte;
+        i2c_mailbox.isFreshData = true;
+      } else if (cmdByte == 'F') {
+        Serial.print("Finalize command recieved: Next value doesnt matter but was recieved -> ");
+        Serial.println(RxByte);
+        i2c_mailbox.scoreUpdate = -1;
+        i2c_mailbox.isFreshData = true;
+      }
+    }
+    byteCtr++;
+  }
+}
+
+
+void UpdateScoreTest() {
+  int scoreReceived = 0;
+  scoreReceived = 5;
+  playerScore += scoreReceived;
+  updatePlayerScoreString();
+  displayInit(defaultName, playerScoreString, lc3);
+  delay(3000);
+  scoreReceived = 100;
+  playerScore += scoreReceived;
+  updatePlayerScoreString();
+  displayInit(defaultName, playerScoreString, lc3);
+  delay(3000);
+  scoreReceived = 999;
+  playerScore += scoreReceived;
+  updatePlayerScoreString();
+  displayInit(defaultName, playerScoreString, lc3);
+  delay(3000);
+}
 
 void executeCurrentState() {
   Serial.print("Executing current state : ");
@@ -78,26 +149,30 @@ void executeCurrentState() {
 
     case UPDATE_SCORE:
       {
-        // while(1) {
         Serial.println("UPDATE_SCORE State");
-        int scoreReceived = 0;
-        scoreReceived = 5;
-        playerScore += scoreReceived;
-        updatePlayerScoreString();
-        displayInit(defaultName, playerScoreString, lc3);
-        delay(3000);
-        scoreReceived = 100;
-        playerScore += scoreReceived;
-        updatePlayerScoreString();
-        displayInit(defaultName, playerScoreString, lc3);
-        delay(3000);
-        scoreReceived = 999;
-        playerScore += scoreReceived;
-        updatePlayerScoreString();
-        displayInit(defaultName, playerScoreString, lc3);
-        delay(3000);
-        // break;
-        // }
+        // message format : U* where * is an 1 byte score (0-255) for a score increase
+        //                  F* where * is a don't care byte signalling that the game is over and the player should now input their name.
+        while (1) {
+          // continuously read from / poll the i2c mailbox, if a fresh message is there then handle it.
+          if (i2c_mailbox.isFreshData) {
+            // process and set fresh flag to false so we don't re-read it
+            if (i2c_mailbox.scoreUpdate > 0) {
+              // a score was recieved but the game continues
+              int scoreReceived = i2c_mailbox.scoreUpdate;
+              playerScore += scoreReceived;
+              updatePlayerScoreString();
+              displayInit(defaultName, playerScoreString, lc3);
+              delay(100);                   // probably unnecessary
+              currentState = UPDATE_SCORE;  // stay here. to be expliit
+
+            } else {
+              Serial.println("GAME OVER - Exiting UPDATE_SCORE state");
+              break;
+            }
+            i2c_mailbox.isFreshData = false;  // remember to unset the mailbox flag
+          }
+          delay(100);
+        }
         currentState = PLAYER_INPUT;
         return;
       }
@@ -829,7 +904,9 @@ void setup() {
 
   pinMode(KEY_ACCEPT, INPUT_PULLDOWN);
   pinMode(KEY_SELECT, INPUT_PULLDOWN);
+  pinMode(LED_BUILTIN, OUTPUT);
 
+  blinkLED(5, 50); // rapid blink on startup 
   /*
    The MAX72XX is in power-saving mode on startup,
    we have to do a wakeup call
@@ -905,6 +982,8 @@ void setup() {
   appendFile(fileName2, playerScoreString, sizeof(playerScoreString));
 #endif
 
+  Wire.begin(I2C_SLAVE_ADDRESS);  // start as address 0x33
+  Wire.onReceive(I2C_RxHandler);
   // initializeLeaderboard();
   currentState = INITIALIZE;
 }

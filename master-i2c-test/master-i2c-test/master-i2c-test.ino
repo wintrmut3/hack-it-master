@@ -7,7 +7,7 @@ void setup() {
 }
 
 void submitMessage(byte cmd, byte ctr){
-    Wire.beginTransmission(0x33);
+    Wire.beginTransmission(0x10);
     Wire.write(cmd); // sends ascii 0 not literal 0
     Wire.write(ctr);
     Wire.endTransmission();
@@ -16,11 +16,11 @@ void submitMessage(byte cmd, byte ctr){
     Serial.println(ctr);
 }
 
-int ctr = 0;
+int ctr = 1;
 void loop() {
   // put your main code here, to run repeatedly:
   
   submitMessage(ctr%10==0?'F':'U',ctr);
-  delay(1000);
+  delay(10000);
   ctr++;
 }
