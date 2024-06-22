@@ -20,9 +20,8 @@ unsigned long delaytime=250;
 
 /* Display number num on lc
  * leading 0 is blank
- *
-*/
-void showNumber(int num){
+ */
+void displayInt(int num){
   lc.clearDisplay(0);
   for(int i = 0; i < 8; i++){
     if(!num){
@@ -32,6 +31,9 @@ void showNumber(int num){
     num /= 10;
   }
 }
+/* Display a string
+ * Input a string (usually a number) and display it
+ */
 void displayString(String num){
   lc.clearDisplay(0);
   for(int i = 0; i < num.length(); i++){
@@ -39,54 +41,53 @@ void displayString(String num){
   }
 }
 
+int FLASHING_DELAY = 1000; // How long we delay flashing numbers
 
-/*
- This portion is for the keypad input... 
- we give constant HIGH on 4 cols, and read output on 4 rows
- use an array to track
- Ignore the ABCD*# (we can add it easily)
-*/
-
+// Define keyboard layout using Keypad.h
 const byte ROWS = 3; 
 const byte COLS = 3; 
-
 char hexaKeys[ROWS][COLS] = {
   {'1', '2', '3'},
   {'4', '5', '6'},
   {'7', '8', '9'}
 };
-byte rowPins[ROWS] = {32, 33, 25};
-byte colPins[COLS] = {17, 5, 18};
+byte rowPins[ROWS] = {32, 33, 25}; // Digital pins used by the keypads (R1, R2, R3)
+byte colPins[COLS] = {17, 5, 18}; // Digital pins used by the keypads (C1, C2, C3)
 Keypad kp = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
-// int readInput(){
-//   for(int rowIndex = 0; rowIndex < rowNums; rowIndex++){
-//     pinMode(rowPins[rowIndex], INPUT);
-//   }
-//   for(int colIndex = 0; colIndex < colNums; colIndex++){
-//     pinMode(colPins[colIndex], INPUT);
-//   }
-//   for(int rowIndex = 0; rowIndex < rowNums; rowIndex++){
-//     pinMode(rowPins[rowIndex], OUTPUT);
-//     digitalWrite(rowPins[rowIndex], HIGH);
-//     for(int colIndex = 0; colIndex < colNums; colIndex++){
-//       if(digitalRead(colPins[colIndex]) == HIGH){
-//         // digitalWrite(rowPins[rowIndex], LOW);
-//         pinMode(rowPins[rowIndex], INPUT);
-//         return keyPadLayout[rowIndex][colIndex];
-//       }
-//     }
-//   }
-//   return -1;
-// }
+// Global variable remembering the target
 String target = "";
+
+// num is the current number entered
+String num = "";
+
+// Define a state machine
+enum State {
+    GAME_IDLE,
+    START_GAME,
+    START_ROUND,
+    INPUT_PHASE,
+    CORRECT,
+    WRONG,
+    GAME_OVER,
+    NUM_STATES
+};
+
+State state = GAME_IDLE;
+
+int score = 0;
+
 void setup() {
+  // Generate a random string with 8 digits, no zero
   for(int i = 0; i < 8; i++){
     target += (String)random(1,10);
   }
+
+  // Define Display Pins
   pinMode(23, OUTPUT);
   pinMode(22, OUTPUT);
   pinMode(21, OUTPUT);
+
   /*
    The MAX72XX is in power-saving mode on startup,
    we have to do a wakeup call
@@ -97,146 +98,140 @@ void setup() {
   /* and clear the display */
   lc.clearDisplay(0);
 
-  displayString(target);
-  delay(1000);
-  displayString("");
-  delay(1000);
-  displayString(target);
-  delay(1000);
-  displayString("");
-  delay(1000);
-  displayString(target);
-  delay(1000);
-  displayString("");
+  // Initialize state
+  state = GAME_IDLE;
 }
 
-// INT VERSION OF DISPLAY
-// int n = -1;
-// int MAX_INT = 99999999;
-// void loop(){
-//   char keyPressed = kp.getKey();
-//   if(keyPressed && keyPressed >= (char)'0' && keyPressed <= (char)'9'){
-//     if(n==-1){
-//       n = keyPressed-48;
-//     }else if (n*10 + keyPressed-48 <= MAX_INT){
-//       n *= 10;
-//       n += keyPressed-48;
-//     }
-//   }
-  
-//   if(n != -1){
-//     showNumber(n);
-//   }
-//   delay(100);
-// }
-
-String num = "";
 void loop() {
-  char keyPressed = kp.getKey();
-  // if it's a number
-  if(keyPressed && keyPressed >= (char)'1' && keyPressed <= (char)'9'){
-    // if(num.length() < 8){
-      num += keyPressed;
-    // }
-  }
-  displayString(num);
-  if(num == target){
-    delay(1000);
+  random(1,10); // Flush out random numbers
+
+  if (state == GAME_IDLE) 
+  {
+    // Do nothing. I2C receive input will change this state
+    // Test: just move to start game state
+    state = START_GAME;
+  } 
+  else if (state == START_GAME) 
+  {
+    // Reset the score
+    score = 0;
+
+    // Next state
+    state = START_ROUND;
+  } 
+  else if (state == START_ROUND) 
+  {
+    // Generate the random value and flash it
+    target = "";
+    num = "";
+    for(int i = 0; i < 8; i++){
+      target += (String)random(1,10);
+    }
+
+    // Flashing target value twice
+    displayString(target);
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
+    displayString(target);
+    delay(FLASHING_DELAY);
+    displayString("");
+    
+    // Proceed to next state
+    state = INPUT_PHASE;
+  } 
+  else if (state == INPUT_PHASE) 
+  {
+    // Read user input and display on screen, detect if 8 values are filled in
+    char keyPressed = kp.getKey();
+    if(keyPressed && keyPressed >= (char)'1' && keyPressed <= (char)'9'){
+        num += keyPressed;
+    }
     displayString(num);
-    delay(1000);
+
+    // Proceed if round over
+    if (num == target) state = CORRECT;
+    else if (num.length() == 8) state = WRONG;
+  } 
+  else if (state == CORRECT) 
+  {
+    // Flash entered result, display AC, add score, display current score
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString(num);
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
+    displayString(num);
+    delay(FLASHING_DELAY);
+    displayString("");
+    delay(FLASHING_DELAY);
     displayString("AC");
-    delay(1000);
-    displayString(target);
-    delay(2000);
-    String temp = "";
-    int scoreCount = 0;
-    for(int i = 0; i < 8; i++){
-      if(num.charAt(i) != target.charAt(i)){
-        temp += " ";
-      }else{
-        temp += num.charAt(i);
-        scoreCount++;
-      }
-    }
-    displayString(temp);
-    delay(3000);
+    delay(FLASHING_DELAY);
+
+    score += 100;
+    displayInt(score);
+    delay(2 * FLASHING_DELAY);
     displayString("");
-    delay(1000);
-    displayString((String)scoreCount);
-    delay(2000);
+    delay(FLASHING_DELAY);
+
+    // Currently we end game after 1 round, but this logic can change
+    state = GAME_OVER;
+  } 
+  else if (state == WRONG) 
+  {
+    // Flash entered result, display no, show correct answer, show overlay (twice), add score, display current score
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
-    target = "";
-    num = "";
-    for(int i = 0; i < 8; i++){
-      target += (String)random(1,10);
-    }
-    displayString(target);
-    delay(1000);
-    displayString("");
-    delay(1000);
-    displayString(target);
-    delay(1000);
-    displayString("");
-  }
-  if(num.length() == 8){
-    delay(1000);
-    displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString(num);
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString(num);
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString("");
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString("no");
-    delay(1000);
+    delay(FLASHING_DELAY);
     displayString(target);
-    delay(2000);
+    delay(2 * FLASHING_DELAY);
     String temp = "";
-    int scoreCount = 0;
     for(int i = 0; i < 8; i++){
       if(num.charAt(i) != target.charAt(i)){
-        temp += " ";
+        temp += "-";
       }else{
         temp += num.charAt(i);
-        scoreCount++;
+        score += 10;
       }
     }
     displayString(temp);
-    delay(3000);
+    delay(3 * FLASHING_DELAY);
     displayString("");
-    delay(1000);
-    displayString((String)scoreCount);
-    delay(2000);
+    delay(FLASHING_DELAY);
+
+    displayInt(score);
+    delay(2 * FLASHING_DELAY);
     displayString("");
-    delay(1000);
-    target = "";
-    num = "";
-    for(int i = 0; i < 8; i++){
-      target += (String)random(1,10);
-    }
-    displayString(target);
-    delay(1000);
-    displayString("");
-    delay(1000);
-    displayString(target);
-    delay(1000);
-    displayString("");
-    delay(1000);
-    displayString(target);
-    delay(1000);
-    displayString("");
+    delay(FLASHING_DELAY);
+
+    // Currently we end game after 1 round, but this logic can change
+    state = GAME_OVER;
+  } 
+  else if (state == GAME_OVER) 
+  {
+    // Same as idle state, display an image and just wait for onRequest to change state
+    displayString("--------");
+    // Test: just go back to idle
+    delay(FLASHING_DELAY);
+    state = GAME_IDLE;
+  } 
+  else 
+  {
+    // Nothing should be here
   }
-  delay(100);
+  
+  // Delay between cycles
+  delay(10);
 }
