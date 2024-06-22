@@ -1,8 +1,6 @@
-//We always have to include the library
-// circuits4you.com
-// #include "LedControl.h"
 #include <LedControl.h>
 #include <Keypad.h>
+#include <Wire.h>
 
 /*
  Now we need a LedControl to work with.
@@ -13,7 +11,7 @@
  pin c is connected to LOAD 
  We have only a single MAX72XX. (x=1)
  */
-LedControl lc=LedControl(23,21,22,1);
+LedControl lc=LedControl(23,12,14,1);
 
 /* we always wait a bit between updates of the display */
 unsigned long delaytime=250;
@@ -62,6 +60,7 @@ String target = "";
 String num = "";
 
 // Define a state machine
+// TODO: can add a "transition to idle and game over" state to prevent constantly updating display
 enum State {
     GAME_IDLE,
     START_GAME,
@@ -78,18 +77,19 @@ State state = GAME_IDLE;
 /* Score Logic:
  * 8 number max, All correct gets 100 score. not all correct get 10 score per correct to max of 70 score.
  */
-int score = 0;
+uint8_t score = 0;
+
+int I2C_ADDRESS = 8;
 
 void setup() {
-  // Generate a random string with 8 digits, no zero
-  for(int i = 0; i < 8; i++){
-    target += (String)random(1,10);
-  }
+  Wire.begin(I2C_ADDRESS);      // join i2c bus with address
+  Wire.onRequest(requestEvent); // register event
+  Wire.onReceive(receiveEvent); // register event
 
   // Define Display Pins
   pinMode(23, OUTPUT);
-  pinMode(22, OUTPUT);
-  pinMode(21, OUTPUT);
+  pinMode(12, OUTPUT);
+  pinMode(14, OUTPUT);
 
   /*
    The MAX72XX is in power-saving mode on startup,
@@ -111,8 +111,9 @@ void loop() {
   if (state == GAME_IDLE) 
   {
     // Do nothing. I2C receive input will change this state
-    // Test: just move to start game state
-    state = START_GAME;
+    displayString("-");
+    // // Test: just move to start game state
+    // state = START_GAME;
   } 
   else if (state == START_GAME) 
   {
@@ -174,7 +175,7 @@ void loop() {
     delay(FLASHING_DELAY);
 
     score += 100;
-    displayInt(score);
+    displayInt((int)score);
     delay(2 * FLASHING_DELAY);
     displayString("");
     delay(FLASHING_DELAY);
@@ -214,7 +215,7 @@ void loop() {
     displayString("");
     delay(FLASHING_DELAY);
 
-    displayInt(score);
+    displayInt((int)score);
     delay(2 * FLASHING_DELAY);
     displayString("");
     delay(FLASHING_DELAY);
@@ -226,9 +227,9 @@ void loop() {
   {
     // Same as idle state, display an image and just wait for onRequest to change state
     displayString("--------");
-    // Test: just go back to idle
-    delay(FLASHING_DELAY);
-    state = GAME_IDLE;
+    // // Test: just go back to idle
+    // delay(FLASHING_DELAY);
+    // state = GAME_IDLE;
   } 
   else 
   {
@@ -237,4 +238,27 @@ void loop() {
   
   // Delay between cycles
   delay(10);
+}
+
+// function that executes whenever data is requested by master
+// this function is registered as an event, see setup()
+void requestEvent() {
+  if (state == GAME_OVER) {
+    Wire.write(score); 
+    state = GAME_IDLE;
+  }
+  else Wire.write(0b11111111);
+}
+// function that executes whenever data is received from master
+    // this function is registered as an event, see setup()
+
+void receiveEvent(int howMany){
+  String str = "";
+  while(Wire.available()) // loop through all 
+  {
+    char c = Wire.read(); // receive byte as a character
+    str += c;
+  }
+  if (str == "S") state = START_GAME;
+  else state = GAME_IDLE;
 }
