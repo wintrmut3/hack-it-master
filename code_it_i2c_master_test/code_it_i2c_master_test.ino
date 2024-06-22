@@ -23,10 +23,10 @@ void setup() {
   
   while (true) {
     Wire.requestFrom(8,1);
-    uint_8 result;
+    uint8_t result;
     while (Wire.available()) { // peripheral may send less than requested
       result = Wire.read(); // receive a byte as character
-      Serial.print(c);         // print the character
+      Serial.print(result);         // print the character
     }
     Serial.println();  
     delay(1000);
