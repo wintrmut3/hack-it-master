@@ -75,6 +75,9 @@ enum State {
 
 State state = GAME_IDLE;
 
+/* Score Logic:
+ * 8 number max, All correct gets 100 score. not all correct get 10 score per correct to max of 70 score.
+ */
 int score = 0;
 
 void setup() {
