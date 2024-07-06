@@ -1,5 +1,6 @@
 #include <FastLED.h>
 #include <Stepper.h>
+#include <Wire.h>
 
 // 7 LIGHTS
 // 30 SECONDS
@@ -17,33 +18,31 @@ int numTargets;
 int lives;
 long startTime;
 int tonePin = 6;
-//int steps = 13 * 1.3135;
-// const float small = 66;//.235;
-// const float big = 122;//.28;
-// int stepSize = small;
-// int currPos = 1;
-int stepsPerRevolution = 2038;
-int stepSize = stepsPerRevolution/8;
 bool prevPressed = false;
+int score = 0;
 
-//CHANGE THIS VALUE (DELAY BETWEEN PULSES)
-// WHATEVER THE VALUE IS SHOULD BECOME 1 step every ___ms.
-int stepDelay = 3;
+enum State {
+    GAME_IDLE,
+    PLAY,
+    CORRECT,
+    GAME_OVER,
+    NUM_STATES
+};
 
-int stepper_pin[4] = {2, 3, 4, 5};
+State state = GAME_IDLE;
+int I2C_ADDRESS = 8;
 
 void setup() {
+  Wire.begin(I2C_ADDRESS);      // join i2c bus with address
+  Wire.onRequest(requestEvent); // register event
+  Wire.onReceive(receiveEvent); // register event
+
   LEDS.addLeds<WS2812B, 11, GRB>(leds, 24);
   LEDS.addLeds<WS2812B, 13, GRB>(timer, 5);
 
   pinMode(8, INPUT_PULLUP);
   pinMode(12, INPUT_PULLUP);
   pinMode(tonePin, OUTPUT);
-
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
   pinMode(tonePin, OUTPUT);
 
   Serial.begin(9600);
@@ -51,58 +50,7 @@ void setup() {
   randElement = random(0, 24);
   numTargets = 7;
   lives = 3;
-  startPosition(); 
   startTime = millis();
-}
-
-// MAYBE MOVE BOTH WAYS?
-void startPosition() {
-  //spin motor clockwise
-  for (int moveCount = 7; moveCount > 0; moveCount--) {
-    for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-      step(true);
-      delay(stepDelay);
-    }
-  }
-}
-
-// there are 2038 steps in one revolution supposedly
-void step(bool clockwise) {
-  const uint8_t phase_pattern[][4] = {
-    {1,0,0,0},
-    {0,1,0,0},
-    {0,0,1,0},
-    {0,0,0,1}
-  };
-
-  static uint8_t current_step = 0;
-  if(clockwise){
-    current_step = (current_step + 1) % 4;
-  } else {
-    current_step = (current_step - 1) % 4;
-  }
-  for(uint8_t i=0;i<4;i++){
-    digitalWrite(stepper_pin[i], phase_pattern[current_step][i]);
-  }
-}
-
-void setToZero(){
-  bool stop = false;
-
-  while (!stop){
-
-    for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-      step(true);
-      delay(stepDelay);
-
-      if (digitalRead(8) == HIGH){
-        stop = true;
-      }
-    }
-    if (digitalRead(8) == HIGH){
-      stop = true;
-    }
-  }  
 }
 
 // Function to select a new random target led and increase speed
@@ -162,11 +110,6 @@ void clockwiseCycle() {
       // Check if user input was instated during correct time frame
       if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
         hitSound();
-        //spin motor counter-clockwise
-        for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-          step(true);
-          delay(stepDelay);
-        }
 
         // Check win (targets)
         if (numTargets == 1) {
@@ -246,16 +189,9 @@ void counterclockwiseCycle() {
       // Check if user input was instated during correct time frame
       if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
         hitSound();
-        //spin motor counter-clockwise
-        for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-          step(true);
-          delay(stepDelay);
-        }
-
         // Check win (targets)
-        if (numTargets == 1) {
-          winJingle();
-          win();
+        if (numTargets == 1) { //looks like we win after hitting one target, this can change
+          state = WIN;
         } else {
           numTargets -= 1;
         }
@@ -412,20 +348,75 @@ void hitSound(){
   delay(50);
 }
 
+// function that executes whenever data is requested by master
+// this function is registered as an event, see setup()
+void requestEvent() {
+  if (state == GAME_OVER) {
+    Wire.write(score); 
+    state = GAME_IDLE;
+  }
+  else Wire.write(0b11111111);
+}
+
+// function that executes whenever data is received from master
+    // this function is registered as an event, see setup()
+
+void receiveEvent(int howMany){
+  String str = "";
+  while(Wire.available()) // loop through all 
+  {
+    char c = Wire.read(); // receive byte as a character
+    str += c;
+  }
+  if (str == "S") state = START_GAME;
+  else state = GAME_IDLE;
+}
+
 void loop() {
-  // check loss (time)
-  if (millis() - startTime > 30000) {
-    setToZero();
-    loseJingle();
-    lose();
+  
+  if (state == GAME_IDLE) 
+  {
+    // Do nothing. I2C receive input will change this state
+    displayString("-");
+    // // Test: just move to start game state
+    // state = START_GAME;
+  } 
+  else if (state == START_GAME){
+    //initialization stuff goes here
+
+    //generate a new randome element
+  }
+  else if (state == PLAY){
+        // check loss (time)
+    if (millis() - startTime > 30000) {
+      state == LOSE;
+    }
+
+    leds[randElement] = CRGB::Yellow;
+    FastLED.show();
+
+    if (clockwise) {
+      clockwiseCycle();
+    } else {
+      counterclockwiseCycle();
+    }
+  }
+  else if (state == LOSE){
+      loseJingle();
+      lose();
+
+      score = -1; //when indicating a lost game, is it negative?
+  }
+  else if (state == WIN){
+      winJingle();
+      win();
   }
 
-  leds[randElement] = CRGB::Yellow;
-  FastLED.show();
-
-  if (clockwise) {
-    clockwiseCycle();
-  } else {
-    counterclockwiseCycle();
+  else if (state == GAME_OVER){
+    //set all the LEDs to 0?
   }
+  else{
+    ;
+  }
+  delay(10);
 }
