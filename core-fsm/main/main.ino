@@ -17,6 +17,15 @@ bool shouldCleanup;
 game currentGame;
 
 uint8_t cart_address = 0x6F;
+uint8_t codeit_address = 0x70;
+uint8_t leaderbrd_address = 0x60;
+
+uint8_t gameToi2cAddress(game g){
+  switch(g){
+    case CART: return cart_address;
+    case CODEIT: return codeit_address;
+  }
+}
 
 // Separate state transition logic and
 // state execution logic into two funcs
@@ -82,13 +91,13 @@ void executeCurrentState() {
       globalScore += lastGameScore;  // assuming this was just overwritten. last state must be from WAIT_SUBGAME
       lastGameScore = 11;
       assert(lastState == WAIT_SUBGAME);
-      Wire.beginTransmission(-1);  // LEADERBOARD ADDRESS
+      Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
       Wire.write('U');             // Send "update score command" to leaderboard
       Wire.write(lastGameScore);   // Update delta
       Wire.endTransmission();
       break;
     case END_ALL_GAMES:
-      Wire.beginTransmission(-1);  // LEADERBOARD ADDRESS
+      Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
       Wire.write('F');  // Send "Game Is Over" to leaderboard
       Wire.write(0);    // Any random number. To keep consistent 2 bytes.
       Wire.endTransmission();
