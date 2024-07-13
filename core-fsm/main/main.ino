@@ -16,6 +16,7 @@ bool shouldEND_SUBGAME;
 bool shouldCleanup;
 game currentGame;
 
+uint8_t cart_address = 0x6F;
 
 // Separate state transition logic and
 // state execution logic into two funcs
@@ -67,7 +68,8 @@ void executeCurrentState() {
       Wire.write('?');  // ARE YOU DONE CMD
       Wire.endTransmission();
       startWAIT_SUBGAMETime = millis();
-      while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000) {
+      while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
+        Wire.requestFrom(cart_address, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
         while (Wire.available()) {
           // no commands sent from slave - > master.
           // if anything's on the bus, it's a score from [0,255]
