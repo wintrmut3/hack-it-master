@@ -64,8 +64,8 @@ void executeCurrentState() {
       globalScore = 0;
       break;
     case START_SUBGAME:
-      currentGame = 0;         // get a random number % NUM_GAMES
-      currentGameAddress = 0;  // get address for game
+      currentGame = rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
       Wire.beginTransmission(currentGameAddress);
       Wire.write('S');  // START GAME CMD
@@ -78,7 +78,7 @@ void executeCurrentState() {
       Wire.endTransmission();
       startWAIT_SUBGAMETime = millis();
       while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
-        Wire.requestFrom(cart_address, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
+        Wire.requestFrom(currentGameAddress, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
         while (Wire.available()) {
           // no commands sent from slave - > master.
           // if anything's on the bus, it's a score from [0,255]
@@ -88,13 +88,19 @@ void executeCurrentState() {
       }
       break;
     case END_SUBGAME:
-      globalScore += lastGameScore;  // assuming this was just overwritten. last state must be from WAIT_SUBGAME
-      lastGameScore = 11;
       assert(lastState == WAIT_SUBGAME);
+//      last state must be from WAIT_SUBGAME assuming last game score was just written
+      globalScore += lastGameScore;  // assuming this was just overwritten.       
+      // writeback to lastGameScore ? as extra verification.
+
+
+      // write through to leaderboard and update quickly. 
       Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
       Wire.write('U');             // Send "update score command" to leaderboard
       Wire.write(lastGameScore);   // Update delta
       Wire.endTransmission();
+      
+      //will autotransition to startSubgame if time is not up.
       break;
     case END_ALL_GAMES:
       Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
