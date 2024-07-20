@@ -20,7 +20,13 @@ unsigned long delaytime=250;
  * leading 0 is blank
  */
 void displayInt(int num){
-  lc.clearDisplay(0);
+  lc.clearDisplay(0); // clear display at addr 0
+  // Specifically display 0
+  if(num==0){
+    lc.setDigit(0,0,0,false);
+    return;
+  }
+  // Not-Zero
   for(int i = 0; i < 8; i++){
     if(!num){
       continue;
