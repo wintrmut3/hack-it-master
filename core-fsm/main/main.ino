@@ -17,13 +17,24 @@ bool shouldCleanup;
 game currentGame;
 
 uint8_t cart_address = 0x6F;
-uint8_t codeit_address = 0x70;
-uint8_t leaderbrd_address = 0x60;
+uint8_t codeit_address = 0x8; // currently not set
+uint8_t leaderbrd_address = 0x10; 
 
 uint8_t gameToi2cAddress(game g){
   switch(g){
     case CART: return cart_address;
     case CODEIT: return codeit_address;
+  }
+}
+
+void blinkLED(int times = 1, int ms = 100) {
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  for (int i = 0; i < times+1; i++) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(ms);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(ms);
   }
 }
 
@@ -59,33 +70,53 @@ void calculateNextState() {
 void executeCurrentState() {
   switch (currentState) {
     case INIT:  // the start of one series of subgames
+      blinkLED(2, 50);
       timeLeft = MAXTIME;
       startTime = millis() / 1000;
       globalScore = 0;
       break;
     case START_SUBGAME:
-      currentGame = rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGame = CODEIT; // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
+      blinkLED(3,50);
+      Serial.println("Starting subgame");
       Wire.beginTransmission(currentGameAddress);
       Wire.write('S');  // START GAME CMD
       Wire.endTransmission();
       break;
     case WAIT_SUBGAME:
       // Note - what happens if the game is still running but the global timer has timed out.
-      Wire.beginTransmission(currentGameAddress);
-      Wire.write('?');  // ARE YOU DONE CMD
-      Wire.endTransmission();
-      startWAIT_SUBGAMETime = millis();
-      while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
-        Wire.requestFrom(currentGameAddress, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
-        while (Wire.available()) {
-          // no commands sent from slave - > master.
-          // if anything's on the bus, it's a score from [0,255]
-          lastGameScore = Wire.read();
+      
+      // Assume if any transmission is achieved then 
+      // Wire.beginTransmission(currentGameAddress);
+      // Wire.write('?');  // ARE YOU DONE CMD
+      // Wire.endTransmission();
+      
+      // startWAIT_SUBGAMETime = millis();
+      // while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
+      Serial.println("Awaiting subgame"); //this is getting spammed.
+      // Serial.println(millis());
+      // Serial.println(startWAIT_SUBGAMETime);
+
+      blinkLED(4);
+      Wire.requestFrom(currentGameAddress, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
+      while (Wire.available()) {
+        // no commands sent from slave - > master.
+        // if anything's on the bus, it's a score from [0,255]
+        
+        lastGameScore = (uint8_t) Wire.read(); // if read 0xFF then it's not done. otherwise, transition out.
+        if (lastGameScore == 0xff){
+          lastGameScore = 0; // not really necceessary
+        }
+        else{
           shouldEND_SUBGAME = true;
+          blinkLED(10, 50);
+
         }
       }
+      delay(MAX_WAIT_GAME_TIME * 1000);
+      // }
       break;
     case END_SUBGAME:
       assert(lastState == WAIT_SUBGAME);
@@ -131,6 +162,7 @@ void executeCurrentState() {
 void setup() {
   // first time setup only, PWRON state
   Wire.begin();
+  Serial.begin(9600);
   currentState = INIT;
 }
 

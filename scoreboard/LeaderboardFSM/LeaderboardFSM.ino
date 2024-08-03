@@ -17,8 +17,8 @@
  We have only a single MAX72XX.
  K M V W X cannot be displayed
  */
-LedControl lc = LedControl(2, 6, 3, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
-LedControl lc1 = LedControl(7, 9, 8, 1);
+LedControl lc1 = LedControl(2, 6, 3, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
+LedControl lc = LedControl(7, 9, 8, 1);   //assuming LC is the top LED
 LedControl lc2 = LedControl(14, 19, 18, 1);
 LedControl lc3 = LedControl(20, 22, 21, 1);
 
@@ -79,15 +79,14 @@ void blinkLED(int times = 1, int ms = 100) {
     delay(ms);
     digitalWrite(LED_BUILTIN, LOW);
     delay(ms);
-
   }
 }
 
 void I2C_RxHandler(int numBytes) {
-  blinkLED(); // blink once on data recv
+  blinkLED();  // blink once on data recv
 
-  Serial.print("RX ");
-  Serial.print(numBytes);
+  //Serial.print("RX ");
+  //Serial.print(numBytes);
   int byteCtr = 0;
   byte cmdByte, RxByte;
   while (Wire.available()) {  // Read Any Received Data
@@ -98,13 +97,13 @@ void I2C_RxHandler(int numBytes) {
     } else {
       // expect a score update
       if (cmdByte == 'U') {
-        Serial.print("Score update recieved: +");
-        Serial.println(RxByte);
+        //Serial.print("Score update recieved: +");
+        //Serial.println(RxByte);
         i2c_mailbox.scoreUpdate = RxByte;
         i2c_mailbox.isFreshData = true;
       } else if (cmdByte == 'F') {
-        Serial.print("Finalize command recieved: Next value doesnt matter but was recieved -> ");
-        Serial.println(RxByte);
+        //Serial.print("Finalize command recieved: Next value doesnt matter but was recieved -> ");
+        //Serial.println(RxByte);
         i2c_mailbox.scoreUpdate = -1;
         i2c_mailbox.isFreshData = true;
       }
@@ -134,13 +133,13 @@ void UpdateScoreTest() {
 }
 
 void executeCurrentState() {
-  Serial.print("Executing current state : ");
-  Serial.println(stateNames[currentState]);
+  //Serial.print("Executing current state : ");
+  //Serial.println(stateNames[currentState]);
   Serial.flush();
   switch (currentState) {
     case INITIALIZE:
       {
-        Serial.println("INITIALIZE State");
+        //Serial.println("INITIALIZE State");
         initializeLeaderboard();
         delay(1000);
         currentState = UPDATE_SCORE;
@@ -149,7 +148,7 @@ void executeCurrentState() {
 
     case UPDATE_SCORE:
       {
-        Serial.println("UPDATE_SCORE State");
+        //Serial.println("UPDATE_SCORE State");
         // message format : U* where * is an 1 byte score (0-255) for a score increase
         //                  F* where * is a don't care byte signalling that the game is over and the player should now input their name.
         while (1) {
@@ -166,7 +165,7 @@ void executeCurrentState() {
               currentState = UPDATE_SCORE;  // stay here. to be expliit
 
             } else {
-              Serial.println("GAME OVER - Exiting UPDATE_SCORE state");
+              //Serial.println("GAME OVER - Exiting UPDATE_SCORE state");
               break;
             }
             i2c_mailbox.isFreshData = false;  // remember to unset the mailbox flag
@@ -179,7 +178,7 @@ void executeCurrentState() {
 
     case PLAYER_INPUT:
       {
-        Serial.println("PLAYER_INPUT State");
+        //Serial.println("PLAYER_INPUT State");
         while (1) {
           Scan_Key();
           delay(scanDelay);
@@ -291,7 +290,7 @@ char currentLetter = 'a';
 
 void displayValue(LedControl board, int index, char value, bool rawValue) {
   unsigned int valueToDisplay = -1;
-  //Serial.print("*********\n");
+  ////Serial.print("*********\n");
   if (rawValue) {
     board.setRow(0, index, value);
     return;
@@ -349,11 +348,11 @@ void displayValue(LedControl board, int index, char value, bool rawValue) {
   if (valueToDisplay != -1) {
     board.setRow(0, index, valueToDisplay);
   } else if ((int)value >= 48 && (int)value <= 57) {
-    // Serial.print("*********\n");
-    // Serial.print(value);
+    // //Serial.print("*********\n");
+    // //Serial.print(value);
     board.setDigit(0, index, (int)value - 48, false);
   } else if (value >= 'a' && value <= 'f') {
-    //Serial.print(valueToDisplay);
+    ////Serial.print(valueToDisplay);
     board.setChar(0, index, value, false);
   }
 
@@ -362,7 +361,7 @@ void displayValue(LedControl board, int index, char value, bool rawValue) {
 
 void Scan_Key() {
   if (digitalRead(KEY_ACCEPT) == 1) {
-    Serial.print("Accept Key Pressed\n");
+    //Serial.print("Accept Key Pressed\n");
     if (currentDisplay > 5) {
       currentDisplay--;
     } else if (currentDisplay == 5) {
@@ -466,7 +465,7 @@ void Scan_Key() {
 
       displayInit(initName, initScore, lc3);
       currentDisplay = -1;
-      Serial.print("Name Entered\n");
+      //Serial.print("Name Entered\n");
 
       globalReset = true;
       return;
@@ -474,7 +473,7 @@ void Scan_Key() {
   }
 
   if (digitalRead(KEY_SELECT) == 1 && currentDisplay != -1) {
-    Serial.println("Select key Pressed\n");
+    //Serial.println("Select key Pressed\n");
     char toDisplay = ++currentIndex[7 - currentDisplay];
 
     // Letter is between A and F
@@ -537,15 +536,15 @@ char returnLetter(int index) {
 }
 
 void readCharsFromFile(const char *path) {
-  Serial.print("readCharsFromFile: ");
-  Serial.print(path);
+  //Serial.print("readCharsFromFile: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "r");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return;
   }
 
@@ -556,23 +555,24 @@ void readCharsFromFile(const char *path) {
 
     if (feof(file)) {
       break;
-    } else
-      Serial.print(c);
+    } else {
+      //Serial.print(c);
+    }
   }
 
   fclose(file);
 }
 
 void readFile(const char *path) {
-  Serial.print("Reading file: ");
-  Serial.print(path);
+  //Serial.print("Reading file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "r");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return;
   }
 
@@ -583,7 +583,7 @@ void readFile(const char *path) {
     numRead = fread((uint8_t *)&c, sizeof(c), 1, file);
 
     if (numRead) {
-      Serial.print(c);
+      //Serial.print(c);
     }
   }
 
@@ -591,15 +591,15 @@ void readFile(const char *path) {
 }
 
 int readFileScore(const char *path) {
-  Serial.print("Reading file: ");
-  Serial.print(path);
+  //Serial.print("Reading file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "r");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return 0;
   }
 
@@ -608,7 +608,7 @@ int readFileScore(const char *path) {
   int digitsRead = -1;
   char scoreInFile[5];
   int scoreInFileInt;
-  Serial.print("\n");
+  //Serial.print("\n");
   while (numRead) {
     numRead = fread((uint8_t *)&c, sizeof(c), 1, file);
 
@@ -616,7 +616,7 @@ int readFileScore(const char *path) {
 
       if (digitsRead >= 0 && digitsRead <= 3) {
         digitsRead++;
-        //Serial.print(c);
+        ////Serial.print(c);
         scoreInFile[digitsRead - 1] = c;
       }
 
@@ -628,24 +628,24 @@ int readFileScore(const char *path) {
   scoreInFile[4] = '\0';
   scoreInFileInt = (int)strtol(scoreInFile, (char **)NULL, 10);
 
-  //Serial.print("************PRINTING SCORE\n");
-  Serial.print(scoreInFile);
-  Serial.print("\n");
+  ////Serial.print("************PRINTING SCORE\n");
+  //Serial.print(scoreInFile);
+  //Serial.print("\n");
   fclose(file);
 
   return scoreInFileInt;
 }
 
 char *readFileScoreString(const char *path) {
-  Serial.print("Reading file: ");
-  Serial.print(path);
+  //Serial.print("Reading file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "r");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return 0;
   }
 
@@ -653,7 +653,7 @@ char *readFileScoreString(const char *path) {
   uint32_t numRead = 1;
   int digitsRead = -1;
   static char scoreInFile[5];
-  Serial.print("\n");
+  //Serial.print("\n");
   while (numRead) {
     numRead = fread((uint8_t *)&c, sizeof(c), 1, file);
 
@@ -661,7 +661,7 @@ char *readFileScoreString(const char *path) {
 
       if (digitsRead >= 0 && digitsRead <= 3) {
         digitsRead++;
-        //Serial.print(c);
+        ////Serial.print(c);
         scoreInFile[digitsRead - 1] = c;
       }
 
@@ -677,15 +677,15 @@ char *readFileScoreString(const char *path) {
 }
 
 char *readFileName(const char *path) {
-  Serial.print("Reading file: ");
-  Serial.print(path);
+  //Serial.print("Reading file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "r");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return 0;
   }
   char c;
@@ -697,9 +697,9 @@ char *readFileName(const char *path) {
     numRead = fread((uint8_t *)&c, sizeof(c), 1, file);
     if (numRead) {
       if (digitsRead >= 0 && digitsRead <= 2) {
-        // Serial.print("digits ");
-        // Serial.print(c);
-        // Serial.print("\n");
+        // //Serial.print("digits ");
+        // //Serial.print(c);
+        // //Serial.print("\n");
         nameInFile[digitsRead] = c;
         digitsRead++;
       } else {
@@ -708,12 +708,12 @@ char *readFileName(const char *path) {
     }
   }
   nameInFile[3] = '\0';
-  // Serial.print("************PRINTING NAME\n");
-  // Serial.print("\n");
-  //Serial.print(nameInFile);
+  // //Serial.print("************PRINTING NAME\n");
+  // //Serial.print("\n");
+  ////Serial.print(nameInFile);
   //char *nameInFileReturn = (char*)malloc(4);
   // if(nameInFileReturn == NULL) {
-  //   Serial.print("NULLName\n");
+  //   //Serial.print("NULLName\n");
   // }
   //strcpy(nameInFileReturn, nameInFile);
   fclose(file);
@@ -722,78 +722,78 @@ char *readFileName(const char *path) {
 }
 
 void writeFile(const char *path, const char *message, size_t messageSize) {
-  Serial.print("Writing file: ");
-  Serial.print(path);
+  //Serial.print("Writing file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "w");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return;
   }
 
   if (fwrite((uint8_t *)message, 1, messageSize, file)) {
-    Serial.println("* Writing OK");
+    //Serial.println("* Writing OK");
   } else {
-    Serial.println("* Writing failed");
+    //Serial.println("* Writing failed");
   }
 
   fclose(file);
 }
 
 void appendFile(const char *path, const char *message, size_t messageSize) {
-  Serial.print("Appending file: ");
-  Serial.print(path);
+  //Serial.print("Appending file: ");
+  //Serial.print(path);
 
   FILE *file = fopen(path, "a");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return;
   }
 
   if (fwrite((uint8_t *)message, 1, messageSize, file)) {
-    Serial.println("* Appending OK");
+    //Serial.println("* Appending OK");
   } else {
-    Serial.println("* Appending failed");
+    //Serial.println("* Appending failed");
   }
 
   fclose(file);
 }
 
 void deleteFile(const char *path) {
-  Serial.print("Deleting file: ");
-  Serial.print(path);
+  //Serial.print("Deleting file: ");
+  //Serial.print(path);
 
   if (remove(path) == 0) {
-    Serial.println(" => OK");
+    //Serial.println(" => OK");
   } else {
-    Serial.println(" => Failed");
+    //Serial.println(" => Failed");
     return;
   }
 }
 
 void renameFile(const char *path1, const char *path2) {
-  Serial.print("Renaming file: ");
-  Serial.print(path1);
-  Serial.print(" to: ");
-  Serial.print(path2);
+  //Serial.print("Renaming file: ");
+  //Serial.print(path1);
+  //Serial.print(" to: ");
+  //Serial.print(path2);
 
   if (rename(path1, path2) == 0) {
-    Serial.println(" => OK");
+    //Serial.println(" => OK");
   } else {
-    Serial.println(" => Failed");
+    //Serial.println(" => Failed");
     return;
   }
 }
 
 void testFileIO(const char *path) {
-  Serial.print("Testing file I/O with: ");
-  Serial.print(path);
+  //Serial.print("Testing file I/O with: ");
+  //Serial.print(path);
 
 #define BUFF_SIZE 512
 
@@ -802,14 +802,14 @@ void testFileIO(const char *path) {
   FILE *file = fopen(path, "w");
 
   if (file) {
-    Serial.println(" => Open OK");
+    //Serial.println(" => Open OK");
   } else {
-    Serial.println(" => Open Failed");
+    //Serial.println(" => Open Failed");
     return;
   }
 
   size_t i;
-  Serial.println("- writing");
+  //Serial.println("- writing");
 
   uint32_t start = millis();
 
@@ -820,21 +820,21 @@ void testFileIO(const char *path) {
     result = fwrite(buf, BUFF_SIZE, 1, file);
 
     if (result != 1) {
-      Serial.print("Write result = ");
-      Serial.println(result);
-      Serial.print("Write error, i = ");
-      Serial.println(i);
+      //Serial.print("Write result = ");
+      //Serial.println(result);
+      //Serial.print("Write error, i = ");
+      //Serial.println(i);
 
       break;
     }
   }
 
-  Serial.println("");
+  //Serial.println("");
   uint32_t end = millis() - start;
 
-  Serial.print(i / 2);
-  Serial.print(" Kbytes written in (ms) ");
-  Serial.println(end);
+  //Serial.print(i / 2);
+  //Serial.print(" Kbytes written in (ms) ");
+  //Serial.println(end);
 
   fclose(file);
 
@@ -850,7 +850,7 @@ void testFileIO(const char *path) {
 
   if (file) {
     start = millis();
-    Serial.println("- reading");
+    //Serial.println("- reading");
 
     result = 0;
 
@@ -861,30 +861,30 @@ void testFileIO(const char *path) {
       result = fread(buf, BUFF_SIZE, 1, file);
 
       if (result != 1) {
-        Serial.print("Read result = ");
-        Serial.println(result);
-        Serial.print("Read error, i = ");
-        Serial.println(i);
+        //Serial.print("Read result = ");
+        //Serial.println(result);
+        //Serial.print("Read error, i = ");
+        //Serial.println(i);
 
         break;
       }
     }
 
-    Serial.println("");
+    //Serial.println("");
     end = millis() - start;
 
-    Serial.print((i * BUFF_SIZE) / 1024);
-    Serial.print(" Kbytes read in (ms) ");
-    Serial.println(end);
+    //Serial.print((i * BUFF_SIZE) / 1024);
+    //Serial.print(" Kbytes read in (ms) ");
+    //Serial.println(end);
 
     fclose(file);
   } else {
-    Serial.println("- failed to open file for reading");
+    //Serial.println("- failed to open file for reading");
   }
 }
 
 void printLine() {
-  Serial.println("====================================================");
+  //Serial.println("====================================================");
 }
 
 void displayInit(char *name, char *score, LedControl bd) {
@@ -906,7 +906,7 @@ void setup() {
   pinMode(KEY_SELECT, INPUT_PULLDOWN);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  blinkLED(5, 50); // rapid blink on startup 
+  blinkLED(5, 50);  // rapid blink on startup
   /*
    The MAX72XX is in power-saving mode on startup,
    we have to do a wakeup call
@@ -936,22 +936,21 @@ void setup() {
   /* and clear the display */
   lc3.clearDisplay(0);
 
-  Serial.begin(9600);
+  // Serial.begin(9600);
+  // while (!Serial) //bruh
+  //   delay(100);
+  //Serial.println("Serial acquired");
+  // Serial.flush();
 
-  while (!Serial)
-    delay(100);
-  Serial.println("Serial acquired");
-  Serial.flush();
-
-  Serial.print("\nStart LittleFS_Test on ");
-  Serial.println(BOARD_NAME);
-  Serial.println(LFS_MBED_RP2040_VERSION);
+  //Serial.print("\nStart LittleFS_Test on ");
+  //Serial.println(BOARD_NAME);
+  //Serial.println(LFS_MBED_RP2040_VERSION);
 
 #if defined(LFS_MBED_RP2040_VERSION_MIN)
 
   if (LFS_MBED_RP2040_VERSION_INT < LFS_MBED_RP2040_VERSION_MIN) {
-    Serial.print("Warning. Must use this example on Version equal or later than : ");
-    Serial.println(LFS_MBED_RP2040_VERSION_MIN_TARGET);
+    //Serial.print("Warning. Must use this example on Version equal or later than : ");
+    //Serial.println(LFS_MBED_RP2040_VERSION_MIN_TARGET);
   }
 
 #endif
@@ -959,16 +958,16 @@ void setup() {
   myFS = new LittleFS_MBED();
 
   if (!myFS->init()) {
-    Serial.println("LITTLEFS Mount Failed");
+    //Serial.println("LITTLEFS Mount Failed");
 
     return;
   }
 
-  Serial.println("\nTest complete");
+  //Serial.println("\nTest complete");
 
   // Reset Leaderboard Code - Uncomment below, Comment initializeLeaderboard() and loop code
 #ifdef RESET_LEADERBOARD_SWITCH
-  Serial.println("Resetting leaderboard!");
+  //Serial.println("Resetting leaderboard!");
   char nameToStore[] = "aaa";
   char playerScoreString[] = "0000";
 
