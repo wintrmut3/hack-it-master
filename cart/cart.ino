@@ -12,7 +12,7 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_
 // CONSTANTS/GLOBAL DECLARATIONS
 uint32_t leds[NUMPIXELS];
 uint32_t *pastLed = NULL;
-int delaySpeed = 110;
+int delaySpeed = 80;
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -32,7 +32,7 @@ void setup() {
   Serial.begin(9600);
   randomSeed(analogRead(0));
   randElement = random(0, NUMPIXELS);
-  numTargets = 7;
+  numTargets = 5;
   lives = 3; 
   startTime = millis();
 }
