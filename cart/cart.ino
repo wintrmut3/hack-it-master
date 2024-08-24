@@ -7,7 +7,6 @@
 
 // CONSTANTS/GLOBAL DECLARATIONS
 struct CRGB leds[24];
-struct CRGB timer[7];
 CRGB *pastLed = NULL;
 int delaySpeed = 225;
 int currLed = 0;
@@ -17,24 +16,10 @@ int numTargets;
 int lives;
 long startTime;
 int tonePin = 6;
-//int steps = 13 * 1.3135;
-// const float small = 66;//.235;
-// const float big = 122;//.28;
-// int stepSize = small;
-// int currPos = 1;
-int stepsPerRevolution = 2038;
-int stepSize = stepsPerRevolution/8;
 bool prevPressed = false;
-
-//CHANGE THIS VALUE (DELAY BETWEEN PULSES)
-// WHATEVER THE VALUE IS SHOULD BECOME 1 step every ___ms.
-int stepDelay = 3;
-
-int stepper_pin[4] = {2, 3, 4, 5};
 
 void setup() {
   LEDS.addLeds<WS2812B, 11, GRB>(leds, 24);
-  LEDS.addLeds<WS2812B, 13, GRB>(timer, 5);
 
   pinMode(8, INPUT_PULLUP);
   pinMode(12, INPUT_PULLUP);
@@ -53,56 +38,6 @@ void setup() {
   lives = 3;
   startPosition(); 
   startTime = millis();
-}
-
-// MAYBE MOVE BOTH WAYS?
-void startPosition() {
-  //spin motor clockwise
-  for (int moveCount = 7; moveCount > 0; moveCount--) {
-    for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-      step(true);
-      delay(stepDelay);
-    }
-  }
-}
-
-// there are 2038 steps in one revolution supposedly
-void step(bool clockwise) {
-  const uint8_t phase_pattern[][4] = {
-    {1,0,0,0},
-    {0,1,0,0},
-    {0,0,1,0},
-    {0,0,0,1}
-  };
-
-  static uint8_t current_step = 0;
-  if(clockwise){
-    current_step = (current_step + 1) % 4;
-  } else {
-    current_step = (current_step - 1) % 4;
-  }
-  for(uint8_t i=0;i<4;i++){
-    digitalWrite(stepper_pin[i], phase_pattern[current_step][i]);
-  }
-}
-
-void setToZero(){
-  bool stop = false;
-
-  while (!stop){
-
-    for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-      step(true);
-      delay(stepDelay);
-
-      if (digitalRead(8) == HIGH){
-        stop = true;
-      }
-    }
-    if (digitalRead(8) == HIGH){
-      stop = true;
-    }
-  }  
 }
 
 // Function to select a new random target led and increase speed
@@ -162,11 +97,6 @@ void clockwiseCycle() {
       // Check if user input was instated during correct time frame
       if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
         hitSound();
-        //spin motor counter-clockwise
-        for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-          step(true);
-          delay(stepDelay);
-        }
 
         // Check win (targets)
         if (numTargets == 1) {
@@ -246,11 +176,6 @@ void counterclockwiseCycle() {
       // Check if user input was instated during correct time frame
       if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
         hitSound();
-        //spin motor counter-clockwise
-        for (int stepCount = 0; stepCount < stepSize; stepCount++) {
-          step(true);
-          delay(stepDelay);
-        }
 
         // Check win (targets)
         if (numTargets == 1) {
