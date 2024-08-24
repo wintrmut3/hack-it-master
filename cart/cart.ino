@@ -1,14 +1,17 @@
-#include <FastLED.h>
-#include <Stepper.h>
+#include <Adafruit_NeoPixel.h>
 
 // 7 LIGHTS
 // 30 SECONDS
 // 3 LIVES
 
+#define RING_PIN      9
+#define NUMPIXELS     45
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_KHZ800);
+
 // CONSTANTS/GLOBAL DECLARATIONS
-struct CRGB leds[24];
-CRGB *pastLed = NULL;
-int delaySpeed = 225;
+uint32_t leds[NUMPIXELS];
+uint32_t *pastLed = NULL;
+int delaySpeed = 125;
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -19,36 +22,30 @@ int tonePin = 6;
 bool prevPressed = false;
 
 void setup() {
-  LEDS.addLeds<WS2812B, 11, GRB>(leds, 24);
+  pixels.begin();
+  pixels.setBrightness(50);
 
-  pinMode(8, INPUT_PULLUP);
+  pinMode(tonePin, OUTPUT);
   pinMode(12, INPUT_PULLUP);
-  pinMode(tonePin, OUTPUT);
-
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(tonePin, OUTPUT);
 
   Serial.begin(9600);
   randomSeed(analogRead(0));
-  randElement = random(0, 24);
+  randElement = random(0, NUMPIXELS);
   numTargets = 7;
-  lives = 3;
-  startPosition(); 
+  lives = 3; 
   startTime = millis();
 }
 
 // Function to select a new random target led and increase speed
 void reset() {
   int oldRand = randElement;
-  leds[randElement] = CRGB::Black;
-  FastLED.show();
-  randElement = random(0, 24);
+  leds[randElement] = pixels.Color(0,0,0);
+  pixels.setPixelColor(randElement, leds[randElement]);
+  pixels.show();
+  randElement = random(0, NUMPIXELS);
   // Re-select the randElement if it picks the same or an LED beside the old LED
   while (randElement == oldRand || randElement == (oldRand + 1) || randElement == (oldRand - 1)) {
-    randElement = random(0, 24);
+    randElement = random(0, NUMPIXELS);
   }
   Serial.println(randElement);
   clockwise = !clockwise;
@@ -63,30 +60,30 @@ void clockwiseCycle() {
   long currTime = 0;
   bool repeat = true;
 
-  for (int i = currLed; i < 24; i ++) {
+  for (int i = currLed; i < NUMPIXELS; i ++) {
     bool invalPress = false;
 
     currTime = millis();
     // Indicate which led is currently selected
     // Vary indication based on if target led is selected
     if (i == randElement) {
-      leds[i] = CRGB::LawnGreen;
+      leds[i] = pixels.Color(0,255,0);
       checkTime = millis();
     } else {
-      leds[i] = CRGB::Blue;
+      leds[i] = pixels.Color(0,0,255);
       invalPress = true;
     }
+    pixels.setPixelColor(i, leds[i]);
 
     // Return previous led to its non-selected colour
-    if (pastLed != NULL) {
-      if (*pastLed == leds[randElement]) {
-        *pastLed = CRGB::Yellow;
-      } else {
-        *pastLed = CRGB::Black;
-      }
+    int prev_index = (i - 1 < 0) ? 44 : i-1;
+    if (prev_index == randElement) {
+      *pastLed = pixels.Color(255,255,0);
+    } else {
+      *pastLed = pixels.Color(0,0,0);
     }
-    pastLed = &leds[i];
-    FastLED.show();
+    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.show();
 
     while (millis() < currTime + delaySpeed) {
       if (digitalRead(12) == LOW) {
@@ -113,13 +110,6 @@ void clockwiseCycle() {
         checkTime = 0;
         repeat = false;
         break;
-      // } else if (invalPress && digitalRead(12) == LOW) {
-      //   if (lives == 0) {
-      //     lose();            
-      //   } else {
-      //     invalPress = false;
-      //     lives -= 1;
-      //   }  
       }
     }
     if (!repeat) {
@@ -148,24 +138,25 @@ void counterclockwiseCycle() {
     currTime = millis();
     // Indicate which led is currently selected
     // Vary indication based on if target led is selected
+
     if (i == randElement) {
-      leds[i] = CRGB::LawnGreen;
+      leds[i] = pixels.Color(0,255,0);
       checkTime = millis();
     } else {
+      leds[i] = pixels.Color(0,0,255);
       invalPress = true;
-      leds[i] = CRGB::Blue;
     }
+    pixels.setPixelColor(i, leds[i]);
 
     // Return previous led to its non-selected colour
-    if (pastLed != NULL) {
-      if (*pastLed == leds[randElement]) {
-        *pastLed = CRGB::Yellow;
-      } else {
-        *pastLed = CRGB::Black;
-      }
+    int prev_index = (i + 1 > 44) ? 0 : i+1;
+    if (prev_index == randElement) {
+      *pastLed = pixels.Color(255,255,0);
+    } else {
+      *pastLed = pixels.Color(0,0,0);
     }
-    pastLed = &leds[i];
-    FastLED.show();
+    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.show();
 
     while (millis() < currTime + delaySpeed) {
       if (digitalRead(12) == LOW) {
@@ -191,14 +182,7 @@ void counterclockwiseCycle() {
         currLed = i;
         checkTime = 0;
         repeat = false;
-        break;
-      // } else if (invalPress && digitalRead(12) == LOW) {
-      //   if (lives == 0) {
-      //     lose();
-      //   } else {
-      //     invalPress = false;
-      //     lives -= 1;
-      //   }  
+        break;  
       }
     }
     if (!repeat) {
@@ -208,44 +192,49 @@ void counterclockwiseCycle() {
 
   // Reset index if target was not correctly pressed
   if (repeat) {
-    currLed = 23;
+    currLed = 44;
   }
 }
 
 // Function to run win animation
 void win(){
   while(1){
-    for (int i = 0;i<24;i++){
+    for (int i = 0;i<NUMPIXELS;i++){
       if (i%2 != 0){
-        leds[i] = CRGB::CRGB::LawnGreen;
-        FastLED.show();
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
+        pixels.show();
         delay(75);
       }
     }
 
-    for (int i = 0;i<24;i++){
+    for (int i = 0;i<NUMPIXELS;i++){
       if (i%2 == 0){
-        leds[i] = CRGB::CRGB::LawnGreen;
-        FastLED.show();
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
+        pixels.show();
         delay(75);
       }
     }
 
-    for (int i = 0; i<24; i++){
-      leds[i] = CRGB::Black;
+    for (int i = 0; i<NUMPIXELS; i++){
+      leds[i] = pixels.Color(0,0,0);
+      pixels.setPixelColor(i, leds[i]);
     }
-    FastLED.show();
+    pixels.show();
     delay(500);
     for (int loopNum = 0; loopNum<2;loopNum++){
-      for (int i =0; i<24;i++){
-        leds[i] = CRGB::CRGB::LawnGreen;
+      for (int i =0; i<NUMPIXELS;i++){
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
       }
-      FastLED.show();
+      pixels.show();
       delay(500);
-      for (int i = 0; i<24; i++){
-        leds[i] = CRGB::Black;
+      for (int i = 0; i<NUMPIXELS; i++){
+        leds[i] = pixels.Color(0,0,0);
+        pixels.setPixelColor(i, leds[i]);
       }
-      FastLED.show();
+      pixels.show();
       delay(500);
     }
   }
@@ -257,30 +246,28 @@ void lose() {
     bool flip = true;
     for (int i = 0; i < 3; i++) {
       if (flip) {
-        for (int i = 0; i <= 2; i++) {
-          leds[i] = CRGB::Red;
-          leds[3 + i] = CRGB::Black;
-          leds[6 + i] = CRGB::Red;
-          leds[9 + i] = CRGB::Black;
-          leds[12 + i] = CRGB::Red;
-          leds[15 + i] = CRGB::Black;
-          leds[18 + i] = CRGB::Red;
-          leds[21 + i] = CRGB::Black;
+        for (int i = 0; i < NUMPIXELS; i++) {
+          if (i % 2 == 0) {
+            leds[i] = pixels.Color(255,0,0);
+          }
+          else {
+            leds[i] = pixels.Color(0,0,0);
+          }
+          pixels.setPixelColor(i, leds[i]);
         }
       } else {
-        for (int i = 0; i <= 2; i++) {
-          leds[i] = CRGB::Black;
-          leds[3 + i] = CRGB::Red;
-          leds[6 + i] = CRGB::Black;
-          leds[9 + i] = CRGB::Red;
-          leds[12 + i] = CRGB::Black;
-          leds[15 + i] = CRGB::Red;
-          leds[18 + i] = CRGB::Black;
-          leds[21 + i] = CRGB::Red;
+        for (int i = 0; i < NUMPIXELS; i++) {
+          if (i % 2 == 0) {
+            leds[i] = pixels.Color(0,0,0);
+          }
+          else {
+            leds[i] = pixels.Color(255,0,0);
+          }
+          pixels.setPixelColor(i, leds[i]);
         }
       }
       flip = !flip;
-      FastLED.show();
+      pixels.show();
       delay(175);
     }
   }
@@ -340,13 +327,13 @@ void hitSound(){
 void loop() {
   // check loss (time)
   if (millis() - startTime > 30000) {
-    setToZero();
     loseJingle();
     lose();
   }
 
-  leds[randElement] = CRGB::Yellow;
-  FastLED.show();
+  leds[randElement] = pixels.Color(255,255,0);
+  pixels.setPixelColor(randElement, leds[randElement]);
+  pixels.show();
 
   if (clockwise) {
     clockwiseCycle();
