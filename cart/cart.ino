@@ -6,12 +6,13 @@
 
 #define RING_PIN      9
 #define NUMPIXELS     45
+#define BUTTON_PIN    2
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_KHZ800);
 
 // CONSTANTS/GLOBAL DECLARATIONS
 uint32_t leds[NUMPIXELS];
 uint32_t *pastLed = NULL;
-int delaySpeed = 125;
+int delaySpeed = 110;
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -23,10 +24,10 @@ bool prevPressed = false;
 
 void setup() {
   pixels.begin();
-  pixels.setBrightness(50);
+  pixels.setBrightness(25);
 
   pinMode(tonePin, OUTPUT);
-  pinMode(12, INPUT_PULLUP);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   Serial.begin(9600);
   randomSeed(analogRead(0));
@@ -49,7 +50,7 @@ void reset() {
   }
   Serial.println(randElement);
   clockwise = !clockwise;
-  delaySpeed -= 25;
+  delaySpeed -= 15;
 }
 
 // Function to run clockwise/left to right direction
@@ -86,13 +87,8 @@ void clockwiseCycle() {
     pixels.show();
 
     while (millis() < currTime + delaySpeed) {
-      if (digitalRead(12) == LOW) {
-        prevPressed = true;
-      } else {
-        prevPressed = false;
-      }
       // Check if user input was instated during correct time frame
-      if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
+      if ((millis() - checkTime <= delaySpeed) && (digitalRead(BUTTON_PIN) == LOW)) {
         hitSound();
 
         // Check win (targets)
@@ -159,13 +155,8 @@ void counterclockwiseCycle() {
     pixels.show();
 
     while (millis() < currTime + delaySpeed) {
-      if (digitalRead(12) == LOW) {
-        prevPressed = true;
-      } else {
-        prevPressed = false;
-      }
       // Check if user input was instated during correct time frame
-      if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
+      if ((millis() - checkTime <= delaySpeed) && (digitalRead(BUTTON_PIN) == LOW)) {
         hitSound();
 
         // Check win (targets)
@@ -204,7 +195,7 @@ void win(){
         leds[i] = pixels.Color(0,255,0);
         pixels.setPixelColor(i, leds[i]);
         pixels.show();
-        delay(75);
+        delay(100);
       }
     }
 
@@ -213,7 +204,7 @@ void win(){
         leds[i] = pixels.Color(0,255,0);
         pixels.setPixelColor(i, leds[i]);
         pixels.show();
-        delay(75);
+        delay(100);
       }
     }
 
