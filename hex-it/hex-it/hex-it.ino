@@ -186,6 +186,8 @@ void OnWireRequest(){
   }
   else{
     // ignore this signal.
+      Wire.write(0xFF);
+
   }
 }
 void OnWireReceive(){
