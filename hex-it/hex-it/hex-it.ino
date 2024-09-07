@@ -1,5 +1,5 @@
 #include <Wire.h>
-
+#define TESTING
 enum state {
   IDLE,
   START_GAME,
@@ -8,7 +8,7 @@ enum state {
   CLEANUP
 };
 
-struct mailbox{
+struct mailbox {
   int score;
   bool ready;
 };
@@ -20,7 +20,7 @@ int dataPin = 7;   // Data pin (SER) of sr is connected to Digital pin 4
 int buttonPins[4] = { 9, 10, 11, 12 };
 int confirmPin = 13;
 int ctr = 0;
-int seg_loading_ctr;
+int seg_loading_ctr = 0;
 int current_rand_hex;
 struct mailbox mailbox;
 // const int sevSegLookup[16] = {126,48,109,121,51,91,95,112,127,123,119,31,78,61,79,71};
@@ -47,7 +47,7 @@ void setup() {
   Serial.begin(9600);
   randomSeed(analogRead(0));  // Set random based on noise from Analog0
 
-  //init i2c 
+  //init i2c
   Wire.begin(0x9);
   Wire.onReceive(OnWireReceive);
   Wire.onRequest(OnWireRequest);
@@ -56,9 +56,19 @@ void setup() {
 }
 
 void loop() {
+  Serial.print("Current state: ");
+  Serial.println(current_state);
   switch (current_state) {
     case IDLE:
-      next_state = should_start_game ? START_GAME :IDLE;
+      // Serial.print("Confirm status: ");
+      // Serial.println(digitalRead(confirmPin));
+
+
+      next_state = should_start_game ? START_GAME : IDLE;
+#ifdef TESTING
+      if (digitalRead(confirmPin) == LOW) next_state = START_GAME;
+#endif
+
       break;
 
     case START_GAME:
@@ -79,14 +89,16 @@ void loop() {
       break;
 
     case WAIT_INPUT:
-      if (digitalRead(confirmPin) == HIGH) {
-        next_state = SHOW_SOLN;
-      } else {
-        seg_loading_ctr += 1;
-        updateShiftRegister(1 << (seg_loading_ctr % 7));
-        delay(500);
+      for (int i = 2; i < 8; i++) {
+        if (digitalRead(confirmPin) == LOW) {
+          next_state = SHOW_SOLN;
+        }
+        updateShiftRegister(1 << (i));
+        delay(50);
       }
       break;
+
+
 
     case SHOW_SOLN:
       // compute score
@@ -108,20 +120,20 @@ void loop() {
         updateShiftRegister(0);  //clear display
         delay(100);
       }
-      current_rand_hex = -1; // safety -- should throw some errors if encountered
+      current_rand_hex = -1;  // safety -- should throw some errors if encountered
 
       // enqueue for send to mailbox
       mailbox.score = score;
       mailbox.ready = 1;
-      
-      updateShiftRegister(0); // finally clear the display.
- 
+
+      updateShiftRegister(0);  // finally clear the display.
+
       next_state = CLEANUP;
-      
+
 
       break;
 
-    case CLEANUP: // wait here until the mailbox is cleaned.
+    case CLEANUP:  // wait here until the mailbox is cleaned.
       // the ready bit will be cleared by the onRequest callback once it is sent out.
       next_state = mailbox.ready ? CLEANUP : IDLE;
       break;
@@ -179,20 +191,18 @@ void testSevenSeg() {
   }
 }
 
-void OnWireRequest(){
-  if(mailbox.ready){
+void OnWireRequest() {
+  if (mailbox.ready) {
     Wire.write(mailbox.score);
     mailbox.ready = false;
-  }
-  else{
+  } else {
     // ignore this signal.
-      Wire.write(0xFF);
-
+    Wire.write(0xFF);
   }
 }
-void OnWireReceive(){
+void OnWireReceive() {
   char c = Wire.read();
-  if(c == 'S'){
+  if (c == 'S') {
     // start game
     should_start_game = true;
   }
