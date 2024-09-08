@@ -1,4 +1,5 @@
 #include <Adafruit_NeoPixel.h>
+#include <Wire.h>
 
 // 7 LIGHTS
 // 30 SECONDS
@@ -7,6 +8,8 @@
 #define RING_PIN      9
 #define NUMPIXELS     45
 #define BUTTON_PIN    2
+#define I2C_ADDRESS   0xF6
+
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_KHZ800);
 
 // CONSTANTS/GLOBAL DECLARATIONS
@@ -21,10 +24,27 @@ int lives;
 long startTime;
 int tonePin = 6;
 bool prevPressed = false;
+int score= 0;
+
+typedef enum State {
+    GAME_IDLE,
+    PLAY_GAME,
+    WIN,
+    LOSE,
+    GAME_OVER,
+    SEND_SCORE,
+    NUM_STATES
+} state_t;
+
+state_t current_state = GAME_IDLE;
 
 void setup() {
+  Wire.begin(I2C_ADDRESS);      // join i2c bus with address
+  Wire.onRequest(requestEvent); // register event
+  Wire.onReceive(receiveEvent); // register event
+
   pixels.begin();
-  pixels.setBrightness(25);
+  pixels.setBrightness(10);
 
   pinMode(tonePin, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -95,6 +115,8 @@ void clockwiseCycle() {
         if (numTargets == 1) {
           winJingle();
           win();
+          current_state = GAME_OVER;
+          break;
         } else {
           numTargets -= 1;
         }
@@ -108,7 +130,7 @@ void clockwiseCycle() {
         break;
       }
     }
-    if (!repeat) {
+    if ((!repeat) || (current_state == GAME_OVER)) {
       break;
     }
   }
@@ -163,6 +185,8 @@ void counterclockwiseCycle() {
         if (numTargets == 1) {
           winJingle();
           win();
+          current_state = GAME_OVER;
+          break;
         } else {
           numTargets -= 1;
         }
@@ -176,7 +200,7 @@ void counterclockwiseCycle() {
         break;  
       }
     }
-    if (!repeat) {
+    if ((!repeat) || (current_state == GAME_OVER)) {
       break;
     }
   }
@@ -189,7 +213,6 @@ void counterclockwiseCycle() {
 
 // Function to run win animation
 void win(){
-  while(1){
     for (int i = 0;i<NUMPIXELS;i++){
       if (i%2 != 0){
         leds[i] = pixels.Color(0,255,0);
@@ -228,12 +251,10 @@ void win(){
       pixels.show();
       delay(500);
     }
-  }
 }
 
 // Function to run lose animation
 void lose() {
-  while(1){
     bool flip = true;
     for (int i = 0; i < 3; i++) {
       if (flip) {
@@ -261,7 +282,6 @@ void lose() {
       pixels.show();
       delay(175);
     }
-  }
 }
 
 void loseJingle(){
@@ -315,11 +335,38 @@ void hitSound(){
   delay(50);
 }
 
-void loop() {
+// function that executes whenever data is requested by master
+// this function is registered as an event, see setup()
+void requestEvent() {
+  if (current_state == SEND_SCORE) {
+    Wire.write(score); 
+    current_state = GAME_IDLE;
+  }
+  else Wire.write(0xFF);
+}
+
+// function that executes whenever data is received from master
+// this function is registered as an event, see setup()
+void receiveEvent(int howMany){
+  String str = "";
+  while(Wire.available()) // loop through all 
+  {
+    char c = Wire.read(); // receive byte as a character
+    str += c;
+  }
+  if (str == "S") {
+    current_state = PLAY_GAME;
+    startTime = millis();
+    }
+  else current_state = GAME_IDLE;
+}
+
+void game_loop(){
   // check loss (time)
   if (millis() - startTime > 30000) {
-    loseJingle();
-    lose();
+      loseJingle();
+      lose();  
+      current_state = GAME_OVER;
   }
 
   leds[randElement] = pixels.Color(255,255,0);
@@ -330,5 +377,40 @@ void loop() {
     clockwiseCycle();
   } else {
     counterclockwiseCycle();
+  }
+}
+
+
+void loop() {
+
+  switch(current_state){
+    case GAME_IDLE:
+      //turn off all the leds 
+      randomSeed(analogRead(0));
+      randElement = random(0, NUMPIXELS);
+      numTargets = 5;
+      lives = 3; 
+      delaySpeed = 80;
+
+      //don't need the button read when 
+      if (digitalRead(BUTTON_PIN) == LOW){
+        current_state = PLAY_GAME;
+        startTime = millis();
+      }
+      break;
+    case PLAY_GAME:
+      game_loop();
+      break;
+    case GAME_OVER:
+      for (int i = 0; i < NUMPIXELS; i++){
+        leds[i] = pixels.Color(0,0,0);
+      }
+      current_state = SEND_SCORE;
+      break;
+    case SEND_SCORE:
+      current_state = GAME_IDLE; //replace this with nothing once connected to master
+      break;
+    default:
+      break; 
   }
 }
