@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="813.56201mm"
+   height="521.46204mm"
+   viewBox="0 0 813.56201 521.46204"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3 (0e150ed6c4, 2023-07-21)"
+   sodipodi:docname="Frontplate_CAD.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showborder="false"
+     inkscape:zoom="0.29766819"
+     inkscape:cx="1609.1743"
+     inkscape:cy="1009.5133"
+     inkscape:window-width="1920"
+     inkscape:window-height="1013"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-57.606484,-98.495091)">
+    <rect
+       style="fill:none;stroke:#2d2d2d;stroke-width:0.762;stroke-miterlimit:6.1"
+       id="rect1"
+       width="812.79999"
+       height="520.70001"
+       x="57.987484"
+       y="98.876091" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="70.960663"
+       y="609.31555"
+       id="text1"><tspan
+         sodipodi:role="line"
+         id="tspan1"
+         style="stroke-width:0.264583"
+         x="70.960663"
+         y="609.31555">Play Area - 32x20</tspan></text>
+    <rect
+       style="fill:#9ade00;stroke:none;stroke-width:0.762;stroke-miterlimit:6.1"
+       id="rect2"
+       width="127"
+       height="127"
+       x="79.73925"
+       y="121.17299" />
+    <rect
+       style="fill:#9ade00;stroke:none;stroke-width:0.978807;stroke-miterlimit:6.1"
+       id="rect3"
+       width="190.5"
+       height="139.7"
+       x="118.50634"
+       y="-838.27893"
+       transform="rotate(90)" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="707.95734"
+       y="130.63239"
+       id="text3"><tspan
+         sodipodi:role="line"
+         id="tspan3"
+         style="stroke-width:0.264583"
+         x="707.95734"
+         y="130.63239">Leaderboard 5.5x7.5</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="86.319313"
+       y="134.57307"
+       id="text4"><tspan
+         sodipodi:role="line"
+         id="tspan4"
+         style="stroke-width:0.264583"
+         x="86.319313"
+         y="134.57307">CodeIt 5x5.5</tspan></text>
+    <rect
+       style="fill:#9ade00;stroke:none;stroke-width:1.04202;stroke-miterlimit:6.1"
+       id="rect4"
+       width="215.89999"
+       height="139.7"
+       x="253.95448"
+       y="120.28414" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="260.53455"
+       y="133.68423"
+       id="text5"><tspan
+         sodipodi:role="line"
+         id="tspan5"
+         style="stroke-width:0.264583"
+         x="260.53455"
+         y="133.68423">CodeIt 5x5.5</tspan></text>
+    <rect
+       style="fill:#9ade00;stroke:none;stroke-width:0.83473;stroke-miterlimit:6.1"
+       id="rect5"
+       width="127"
+       height="152.39999"
+       x="75.294991"
+       y="423.38309" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.5833px;line-height:1.25;font-family:Bahnschrift;-inkscape-font-specification:Bahnschrift;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="81.875053"
+       y="436.78317"
+       id="text6"><tspan
+         sodipodi:role="line"
+         id="tspan6"
+         style="stroke-width:0.264583"
+         x="81.875053"
+         y="436.78317">CatchIt 5x6</tspan></text>
+  </g>
+</svg>

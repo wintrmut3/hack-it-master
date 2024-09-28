@@ -12,5 +12,7 @@ enum state{
 enum game{
   CART,
   HEXIT,
+  CODEIT,
   NUM_GAMES
 };
+

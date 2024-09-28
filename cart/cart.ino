@@ -362,13 +362,6 @@ void receiveEvent(int howMany){
 }
 
 void game_loop(){
-  // check loss (time)
-  if (millis() - startTime > 30000) {
-      loseJingle();
-      lose();  
-      current_state = GAME_OVER;
-  }
-
   leds[randElement] = pixels.Color(255,255,0);
   pixels.setPixelColor(randElement, leds[randElement]);
   pixels.show();
@@ -378,8 +371,14 @@ void game_loop(){
   } else {
     counterclockwiseCycle();
   }
-}
 
+  // check loss (time), check at the end of the loop
+  if (millis() - startTime > 30000) {
+      loseJingle();
+      lose();  
+      current_state = GAME_OVER;
+  }
+}
 
 void loop() {
 
@@ -392,7 +391,7 @@ void loop() {
       lives = 3; 
       delaySpeed = 80;
 
-      //don't need the button read when 
+      //don't need the button read when connected to master
       if (digitalRead(BUTTON_PIN) == LOW){
         current_state = PLAY_GAME;
         startTime = millis();
