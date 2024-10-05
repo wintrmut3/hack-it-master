@@ -1,16 +1,21 @@
-#include <FastLED.h>
-#include <Stepper.h>
+#include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 
 // 7 LIGHTS
 // 30 SECONDS
 // 3 LIVES
 
+#define RING_PIN      9
+#define NUMPIXELS     45
+#define BUTTON_PIN    2
+#define I2C_ADDRESS   0xF6
+
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_KHZ800);
+
 // CONSTANTS/GLOBAL DECLARATIONS
-struct CRGB leds[24];
-struct CRGB timer[7];
-CRGB *pastLed = NULL;
-int delaySpeed = 225;
+uint32_t leds[NUMPIXELS];
+uint32_t *pastLed = NULL;
+int delaySpeed = 80;
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -19,53 +24,53 @@ int lives;
 long startTime;
 int tonePin = 6;
 bool prevPressed = false;
-int score = 0;
+int score= 0;
 
-enum State {
+typedef enum State {
     GAME_IDLE,
-    PLAY,
-    CORRECT,
+    PLAY_GAME,
+    WIN,
+    LOSE,
     GAME_OVER,
+    SEND_SCORE,
     NUM_STATES
-};
+} state_t;
 
-State state = GAME_IDLE;
-int I2C_ADDRESS = 8;
+state_t current_state = GAME_IDLE;
 
 void setup() {
   Wire.begin(I2C_ADDRESS);      // join i2c bus with address
   Wire.onRequest(requestEvent); // register event
   Wire.onReceive(receiveEvent); // register event
 
-  LEDS.addLeds<WS2812B, 11, GRB>(leds, 24);
-  LEDS.addLeds<WS2812B, 13, GRB>(timer, 5);
+  pixels.begin();
+  pixels.setBrightness(10);
 
-  pinMode(8, INPUT_PULLUP);
-  pinMode(12, INPUT_PULLUP);
   pinMode(tonePin, OUTPUT);
-  pinMode(tonePin, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   Serial.begin(9600);
   randomSeed(analogRead(0));
-  randElement = random(0, 24);
-  numTargets = 7;
-  lives = 3;
+  randElement = random(0, NUMPIXELS);
+  numTargets = 5;
+  lives = 3; 
   startTime = millis();
 }
 
 // Function to select a new random target led and increase speed
 void reset() {
   int oldRand = randElement;
-  leds[randElement] = CRGB::Black;
-  FastLED.show();
-  randElement = random(0, 24);
+  leds[randElement] = pixels.Color(0,0,0);
+  pixels.setPixelColor(randElement, leds[randElement]);
+  pixels.show();
+  randElement = random(0, NUMPIXELS);
   // Re-select the randElement if it picks the same or an LED beside the old LED
   while (randElement == oldRand || randElement == (oldRand + 1) || randElement == (oldRand - 1)) {
-    randElement = random(0, 24);
+    randElement = random(0, NUMPIXELS);
   }
   Serial.println(randElement);
   clockwise = !clockwise;
-  delaySpeed -= 25;
+  delaySpeed -= 15;
 }
 
 // Function to run clockwise/left to right direction
@@ -76,45 +81,42 @@ void clockwiseCycle() {
   long currTime = 0;
   bool repeat = true;
 
-  for (int i = currLed; i < 24; i ++) {
+  for (int i = currLed; i < NUMPIXELS; i ++) {
     bool invalPress = false;
 
     currTime = millis();
     // Indicate which led is currently selected
     // Vary indication based on if target led is selected
     if (i == randElement) {
-      leds[i] = CRGB::LawnGreen;
+      leds[i] = pixels.Color(0,255,0);
       checkTime = millis();
     } else {
-      leds[i] = CRGB::Blue;
+      leds[i] = pixels.Color(0,0,255);
       invalPress = true;
     }
+    pixels.setPixelColor(i, leds[i]);
 
     // Return previous led to its non-selected colour
-    if (pastLed != NULL) {
-      if (*pastLed == leds[randElement]) {
-        *pastLed = CRGB::Yellow;
-      } else {
-        *pastLed = CRGB::Black;
-      }
+    int prev_index = (i - 1 < 0) ? 44 : i-1;
+    if (prev_index == randElement) {
+      *pastLed = pixels.Color(255,255,0);
+    } else {
+      *pastLed = pixels.Color(0,0,0);
     }
-    pastLed = &leds[i];
-    FastLED.show();
+    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.show();
 
     while (millis() < currTime + delaySpeed) {
-      if (digitalRead(12) == LOW) {
-        prevPressed = true;
-      } else {
-        prevPressed = false;
-      }
       // Check if user input was instated during correct time frame
-      if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
+      if ((millis() - checkTime <= delaySpeed) && (digitalRead(BUTTON_PIN) == LOW)) {
         hitSound();
 
         // Check win (targets)
         if (numTargets == 1) {
           winJingle();
           win();
+          current_state = GAME_OVER;
+          break;
         } else {
           numTargets -= 1;
         }
@@ -126,16 +128,9 @@ void clockwiseCycle() {
         checkTime = 0;
         repeat = false;
         break;
-      // } else if (invalPress && digitalRead(12) == LOW) {
-      //   if (lives == 0) {
-      //     lose();            
-      //   } else {
-      //     invalPress = false;
-      //     lives -= 1;
-      //   }  
       }
     }
-    if (!repeat) {
+    if ((!repeat) || (current_state == GAME_OVER)) {
       break;
     }
   }
@@ -161,37 +156,37 @@ void counterclockwiseCycle() {
     currTime = millis();
     // Indicate which led is currently selected
     // Vary indication based on if target led is selected
+
     if (i == randElement) {
-      leds[i] = CRGB::LawnGreen;
+      leds[i] = pixels.Color(0,255,0);
       checkTime = millis();
     } else {
+      leds[i] = pixels.Color(0,0,255);
       invalPress = true;
-      leds[i] = CRGB::Blue;
     }
+    pixels.setPixelColor(i, leds[i]);
 
     // Return previous led to its non-selected colour
-    if (pastLed != NULL) {
-      if (*pastLed == leds[randElement]) {
-        *pastLed = CRGB::Yellow;
-      } else {
-        *pastLed = CRGB::Black;
-      }
+    int prev_index = (i + 1 > 44) ? 0 : i+1;
+    if (prev_index == randElement) {
+      *pastLed = pixels.Color(255,255,0);
+    } else {
+      *pastLed = pixels.Color(0,0,0);
     }
-    pastLed = &leds[i];
-    FastLED.show();
+    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.show();
 
     while (millis() < currTime + delaySpeed) {
-      if (digitalRead(12) == LOW) {
-        prevPressed = true;
-      } else {
-        prevPressed = false;
-      }
       // Check if user input was instated during correct time frame
-      if ((millis() - checkTime <= delaySpeed) && (prevPressed && digitalRead(12) == HIGH)) {
+      if ((millis() - checkTime <= delaySpeed) && (digitalRead(BUTTON_PIN) == LOW)) {
         hitSound();
+
         // Check win (targets)
-        if (numTargets == 1) { //looks like we win after hitting one target, this can change
-          state = WIN;
+        if (numTargets == 1) {
+          winJingle();
+          win();
+          current_state = GAME_OVER;
+          break;
         } else {
           numTargets -= 1;
         }
@@ -202,99 +197,91 @@ void counterclockwiseCycle() {
         currLed = i;
         checkTime = 0;
         repeat = false;
-        break;
-      // } else if (invalPress && digitalRead(12) == LOW) {
-      //   if (lives == 0) {
-      //     lose();
-      //   } else {
-      //     invalPress = false;
-      //     lives -= 1;
-      //   }  
+        break;  
       }
     }
-    if (!repeat) {
+    if ((!repeat) || (current_state == GAME_OVER)) {
       break;
     }
   }
 
   // Reset index if target was not correctly pressed
   if (repeat) {
-    currLed = 23;
+    currLed = 44;
   }
 }
 
 // Function to run win animation
 void win(){
-  while(1){
-    for (int i = 0;i<24;i++){
+    for (int i = 0;i<NUMPIXELS;i++){
       if (i%2 != 0){
-        leds[i] = CRGB::CRGB::LawnGreen;
-        FastLED.show();
-        delay(75);
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
+        pixels.show();
+        delay(100);
       }
     }
 
-    for (int i = 0;i<24;i++){
+    for (int i = 0;i<NUMPIXELS;i++){
       if (i%2 == 0){
-        leds[i] = CRGB::CRGB::LawnGreen;
-        FastLED.show();
-        delay(75);
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
+        pixels.show();
+        delay(100);
       }
     }
 
-    for (int i = 0; i<24; i++){
-      leds[i] = CRGB::Black;
+    for (int i = 0; i<NUMPIXELS; i++){
+      leds[i] = pixels.Color(0,0,0);
+      pixels.setPixelColor(i, leds[i]);
     }
-    FastLED.show();
+    pixels.show();
     delay(500);
     for (int loopNum = 0; loopNum<2;loopNum++){
-      for (int i =0; i<24;i++){
-        leds[i] = CRGB::CRGB::LawnGreen;
+      for (int i =0; i<NUMPIXELS;i++){
+        leds[i] = pixels.Color(0,255,0);
+        pixels.setPixelColor(i, leds[i]);
       }
-      FastLED.show();
+      pixels.show();
       delay(500);
-      for (int i = 0; i<24; i++){
-        leds[i] = CRGB::Black;
+      for (int i = 0; i<NUMPIXELS; i++){
+        leds[i] = pixels.Color(0,0,0);
+        pixels.setPixelColor(i, leds[i]);
       }
-      FastLED.show();
+      pixels.show();
       delay(500);
     }
-  }
 }
 
 // Function to run lose animation
 void lose() {
-  while(1){
     bool flip = true;
     for (int i = 0; i < 3; i++) {
       if (flip) {
-        for (int i = 0; i <= 2; i++) {
-          leds[i] = CRGB::Red;
-          leds[3 + i] = CRGB::Black;
-          leds[6 + i] = CRGB::Red;
-          leds[9 + i] = CRGB::Black;
-          leds[12 + i] = CRGB::Red;
-          leds[15 + i] = CRGB::Black;
-          leds[18 + i] = CRGB::Red;
-          leds[21 + i] = CRGB::Black;
+        for (int i = 0; i < NUMPIXELS; i++) {
+          if (i % 2 == 0) {
+            leds[i] = pixels.Color(255,0,0);
+          }
+          else {
+            leds[i] = pixels.Color(0,0,0);
+          }
+          pixels.setPixelColor(i, leds[i]);
         }
       } else {
-        for (int i = 0; i <= 2; i++) {
-          leds[i] = CRGB::Black;
-          leds[3 + i] = CRGB::Red;
-          leds[6 + i] = CRGB::Black;
-          leds[9 + i] = CRGB::Red;
-          leds[12 + i] = CRGB::Black;
-          leds[15 + i] = CRGB::Red;
-          leds[18 + i] = CRGB::Black;
-          leds[21 + i] = CRGB::Red;
+        for (int i = 0; i < NUMPIXELS; i++) {
+          if (i % 2 == 0) {
+            leds[i] = pixels.Color(0,0,0);
+          }
+          else {
+            leds[i] = pixels.Color(255,0,0);
+          }
+          pixels.setPixelColor(i, leds[i]);
         }
       }
       flip = !flip;
-      FastLED.show();
+      pixels.show();
       delay(175);
     }
-  }
 }
 
 void loseJingle(){
@@ -351,16 +338,15 @@ void hitSound(){
 // function that executes whenever data is requested by master
 // this function is registered as an event, see setup()
 void requestEvent() {
-  if (state == GAME_OVER) {
+  if (current_state == SEND_SCORE) {
     Wire.write(score); 
-    state = GAME_IDLE;
+    current_state = GAME_IDLE;
   }
-  else Wire.write(0b11111111);
+  else Wire.write(0xFF);
 }
 
 // function that executes whenever data is received from master
-    // this function is registered as an event, see setup()
-
+// this function is registered as an event, see setup()
 void receiveEvent(int howMany){
   String str = "";
   while(Wire.available()) // loop through all 
@@ -368,55 +354,62 @@ void receiveEvent(int howMany){
     char c = Wire.read(); // receive byte as a character
     str += c;
   }
-  if (str == "S") state = START_GAME;
-  else state = GAME_IDLE;
+  if (str == "S") {
+    current_state = PLAY_GAME;
+    startTime = millis();
+    }
+  else current_state = GAME_IDLE;
+}
+
+void game_loop(){
+  leds[randElement] = pixels.Color(255,255,0);
+  pixels.setPixelColor(randElement, leds[randElement]);
+  pixels.show();
+
+  if (clockwise) {
+    clockwiseCycle();
+  } else {
+    counterclockwiseCycle();
+  }
+
+  // check loss (time), check at the end of the loop
+  if (millis() - startTime > 30000) {
+      loseJingle();
+      lose();  
+      current_state = GAME_OVER;
+  }
 }
 
 void loop() {
-  
-  if (state == GAME_IDLE) 
-  {
-    // Do nothing. I2C receive input will change this state
-    displayString("-");
-    // // Test: just move to start game state
-    // state = START_GAME;
-  } 
-  else if (state == START_GAME){
-    //initialization stuff goes here
 
-    //generate a new randome element
-  }
-  else if (state == PLAY){
-        // check loss (time)
-    if (millis() - startTime > 30000) {
-      state == LOSE;
-    }
+  switch(current_state){
+    case GAME_IDLE:
+      //turn off all the leds 
+      randomSeed(analogRead(0));
+      randElement = random(0, NUMPIXELS);
+      numTargets = 5;
+      lives = 3; 
+      delaySpeed = 80;
 
-    leds[randElement] = CRGB::Yellow;
-    FastLED.show();
-
-    if (clockwise) {
-      clockwiseCycle();
-    } else {
-      counterclockwiseCycle();
-    }
+      //don't need the button read when connected to master
+      if (digitalRead(BUTTON_PIN) == LOW){
+        current_state = PLAY_GAME;
+        startTime = millis();
+      }
+      break;
+    case PLAY_GAME:
+      game_loop();
+      break;
+    case GAME_OVER:
+      for (int i = 0; i < NUMPIXELS; i++){
+        leds[i] = pixels.Color(0,0,0);
+      }
+      current_state = SEND_SCORE;
+      break;
+    case SEND_SCORE:
+      current_state = GAME_IDLE; //replace this with nothing once connected to master
+      break;
+    default:
+      break; 
   }
-  else if (state == LOSE){
-      loseJingle();
-      lose();
-
-      score = -1; //when indicating a lost game, is it negative?
-  }
-  else if (state == WIN){
-      winJingle();
-      win();
-  }
-
-  else if (state == GAME_OVER){
-    //set all the LEDs to 0?
-  }
-  else{
-    ;
-  }
-  delay(10);
 }
