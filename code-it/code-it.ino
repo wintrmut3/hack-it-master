@@ -80,6 +80,10 @@ enum State {
 
 State state = GAME_IDLE;
 
+// Difficulty setting from 0 to 7, 7 being hardest. (0 displays only 1 number, while 7 displays all 8 numbers) 
+// Score still scales from 0 to 80 for correct, and 100 for all correct. 
+int difficulty = 7;
+
 /* Score Logic:
  * 8 number max, All correct gets 100 score. not all correct get 10 score per correct to max of 70 score.
  */
@@ -134,7 +138,7 @@ void loop() {
     // Generate the random value and flash it
     target = "";
     num = "";
-    for(int i = 0; i < 8; i++){
+    for(int i = 0; i < difficulty + 1; i++){
       target += (String)random(1,10);
     }
 
@@ -161,7 +165,7 @@ void loop() {
 
     // Proceed if round over
     if (num == target) state = CORRECT;
-    else if (num.length() == 8) state = WRONG;
+    else if (num.length() == difficulty + 1) state = WRONG;
   } 
   else if (state == CORRECT) 
   {
@@ -208,12 +212,12 @@ void loop() {
     displayString(target);
     delay(2 * FLASHING_DELAY);
     String temp = "";
-    for(int i = 0; i < 8; i++){
+    for(int i = 0; i < difficulty + 1; i++){
       if(num.charAt(i) != target.charAt(i)){
         temp += "-";
       }else{
         temp += num.charAt(i);
-        score += 10;
+        score += 80 / (difficulty + 1);
       }
     }
     displayString(temp);
@@ -258,6 +262,7 @@ void requestEvent() {
 // function that executes whenever data is received from master
     // this function is registered as an event, see setup()
 
+// The game starts whenever it receives ANYTHING, nothing will force game to stop
 void receiveEvent(int howMany){
   String str = "";
   while(Wire.available()) // loop through all 
@@ -265,6 +270,5 @@ void receiveEvent(int howMany){
     char c = Wire.read(); // receive byte as a character
     str += c;
   }
-  if (str == "S") state = START_GAME;
-  else state = GAME_IDLE;
+  difficulty = static_cast<int>(str[0]) - static_cast<int>('S'); // S is difficulty 0, Z is difficulty 7
 }
