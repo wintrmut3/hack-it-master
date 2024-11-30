@@ -1,6 +1,6 @@
 #include <FastLED.h>
 #include<Wire.h>
-// #define TESTING
+#define TESTING
 enum state {
   IDLE,
   START_GAME,
@@ -43,7 +43,7 @@ void setup() {
   Serial.begin(9600);
   FastLED.addLeds<WS2812B, leftStripDataPin, GRB>(leftStrip, 4);
   FastLED.addLeds<WS2812B, rightStripdataPin, GRB>(rightStrip, 4);
-  FastLED.setBrightness(32);
+  FastLED.setBrightness(128);
   FastLED.clear();
 
   //init i2c

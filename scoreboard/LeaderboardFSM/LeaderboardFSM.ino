@@ -17,7 +17,9 @@
  We have only a single MAX72XX.
  K M V W X cannot be displayed
  */
-LedControl lc1 = LedControl(2, 6, 3, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
+
+ // LED control syntax (DIN=3,CLK=6, CS/LOAD=2,) - ref https://learn.carobot.ca/guide/1519-8-digit-7-seg
+LedControl lc1 = LedControl(3, 6, 2, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
 LedControl lc = LedControl(7, 9, 8, 1);   //assuming LC is the top LED
 LedControl lc2 = LedControl(14, 19, 18, 1);
 LedControl lc3 = LedControl(20, 22, 21, 1);
@@ -466,6 +468,7 @@ void Scan_Key() {
       displayInit(initName, initScore, lc3);
       currentDisplay = -1;
       //Serial.print("Name Entered\n");
+
 
       globalReset = true;
       return;
@@ -935,6 +938,10 @@ void setup() {
   lc3.setIntensity(0, 8);
   /* and clear the display */
   lc3.clearDisplay(0);
+
+  
+      // test
+    UpdateScoreTest();
 
   // Serial.begin(9600);
   // while (!Serial) //bruh

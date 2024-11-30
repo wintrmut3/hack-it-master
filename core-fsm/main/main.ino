@@ -2,6 +2,7 @@
 #include "names.h"
 #include <Wire.h>
 #include <assert.h>
+#include "logger.h"
 #define MAXTIME 120
 #define MAX_WAIT_GAME_TIME 5  // max seconds to wait until reading again.
 
@@ -16,12 +17,14 @@ bool shouldEND_SUBGAME;
 bool shouldCleanup;
 game currentGame;
 
-uint8_t cart_address = 0x6F;
-uint8_t codeit_address = 0x8; // currently not set
-uint8_t leaderbrd_address = 0x10; 
+char buff [17];
 
-uint8_t gameToi2cAddress(game g){
-  switch(g){
+uint8_t cart_address = 0x6F;
+uint8_t codeit_address = 0x8;  // currently not set
+uint8_t leaderbrd_address = 0x10;
+
+uint8_t gameToi2cAddress(game g) {
+  switch (g) {
     case CART: return cart_address;
     case CODEIT: return codeit_address;
   }
@@ -30,7 +33,7 @@ uint8_t gameToi2cAddress(game g){
 void blinkLED(int times = 1, int ms = 100) {
   pinMode(LED_BUILTIN, OUTPUT);
 
-  for (int i = 0; i < times+1; i++) {
+  for (int i = 0; i < times + 1; i++) {
     digitalWrite(LED_BUILTIN, HIGH);
     delay(ms);
     digitalWrite(LED_BUILTIN, LOW);
@@ -76,43 +79,53 @@ void executeCurrentState() {
       globalScore = 0;
       break;
     case START_SUBGAME:
-      currentGame = CODEIT; // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGame = CODEIT;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
-      blinkLED(3,50);
-      Serial.println("Starting subgame");
+      blinkLED(3, 50);
+      // Serial.println("Starting subgame");
+      snprintf(buff, 16, "start sg@%x",currentGameAddress);
+      log(buff);
+
       Wire.beginTransmission(currentGameAddress);
       Wire.write('S');  // START GAME CMD
       Wire.endTransmission();
       break;
     case WAIT_SUBGAME:
       // Note - what happens if the game is still running but the global timer has timed out.
-      
-      // Assume if any transmission is achieved then 
+
+      // Assume if any transmission is achieved then
       // Wire.beginTransmission(currentGameAddress);
       // Wire.write('?');  // ARE YOU DONE CMD
       // Wire.endTransmission();
-      
+
       // startWAIT_SUBGAMETime = millis();
       // while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
-      Serial.println("Awaiting subgame"); //this is getting spammed.
+      Serial.println("Awaiting subgame");  //this is getting spammed.
+
+      // char buff2 [32];
+      // sprintf(buff2, "wait sg %x", currentGameAddress);
+      // log(buff2);
+      log("wait sg");
+
       // Serial.println(millis());
       // Serial.println(startWAIT_SUBGAMETime);
 
       blinkLED(4);
-      Wire.requestFrom(currentGameAddress, 1);// will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
+      Wire.requestFrom(currentGameAddress, 1);  // will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
       while (Wire.available()) {
         // no commands sent from slave - > master.
         // if anything's on the bus, it's a score from [0,255]
-        
-        lastGameScore = (uint8_t) Wire.read(); // if read 0xFF then it's not done. otherwise, transition out.
-        if (lastGameScore == 0xff){
-          lastGameScore = 0; // not really necceessary
-        }
-        else{
-          shouldEND_SUBGAME = true;
-          blinkLED(10, 50);
 
+        lastGameScore = (uint8_t)Wire.read();  // if read 0xFF then it's not done. otherwise, transition out.
+        if (lastGameScore == 0xff) {
+          lastGameScore = 0;  // not really necceessary
+        } else {
+          shouldEND_SUBGAME = true;
+          // blinkLED(10, 50);
+
+          snprintf(buff,16, "done sg %x -> %d", currentGameAddress, lastGameScore);
+          log(buff); // prints "test 2^1 = 2" ...etc
         }
       }
       delay(MAX_WAIT_GAME_TIME * 1000);
@@ -120,23 +133,27 @@ void executeCurrentState() {
       break;
     case END_SUBGAME:
       assert(lastState == WAIT_SUBGAME);
-//      last state must be from WAIT_SUBGAME assuming last game score was just written
-      globalScore += lastGameScore;  // assuming this was just overwritten.       
+      //      last state must be from WAIT_SUBGAME assuming last game score was just written
+      globalScore += lastGameScore;  // assuming this was just overwritten.
       // writeback to lastGameScore ? as extra verification.
 
 
-      // write through to leaderboard and update quickly. 
+      // write through to leaderboard and update quickly.
       Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
-      Wire.write('U');             // Send "update score command" to leaderboard
-      Wire.write(lastGameScore);   // Update delta
+      Wire.write('U');                            // Send "update score command" to leaderboard
+      Wire.write(lastGameScore);                  // Update delta
       Wire.endTransmission();
-      
+
+      // char buff4[32];
+      snprintf(buff, "write lb U%d", lastGameScore);
+      log(buff);  // prints "test 2^1 = 2" ...etc
+
       //will autotransition to startSubgame if time is not up.
       break;
     case END_ALL_GAMES:
       Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
-      Wire.write('F');  // Send "Game Is Over" to leaderboard
-      Wire.write(0);    // Any random number. To keep consistent 2 bytes.
+      Wire.write('F');                            // Send "Game Is Over" to leaderboard
+      Wire.write(0);                              // Any random number. To keep consistent 2 bytes.
       Wire.endTransmission();
 
       shouldCleanup = false;
@@ -164,6 +181,10 @@ void setup() {
   Wire.begin();
   Serial.begin(9600);
   currentState = INIT;
+  initLogger();
+
+  log("Setup complete!");
+  delay(200);
 }
 
 void loop() {
