@@ -19,8 +19,8 @@
  */
 
  // LED control syntax (DIN=3,CLK=6, CS/LOAD=2,) - ref https://learn.carobot.ca/guide/1519-8-digit-7-seg
-LedControl lc1 = LedControl(3, 6, 2, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
 LedControl lc = LedControl(7, 9, 8, 1);   //assuming LC is the top LED
+LedControl lc1 = LedControl(3, 6, 2, 1);  // change second pin to 6. we need the 4/5 pins for i2c0 comms to master
 LedControl lc2 = LedControl(14, 19, 18, 1);
 LedControl lc3 = LedControl(20, 22, 21, 1);
 
@@ -941,7 +941,7 @@ void setup() {
 
   
       // test
-    UpdateScoreTest();
+    // UpdateScoreTest();
 
   // Serial.begin(9600);
   // while (!Serial) //bruh
