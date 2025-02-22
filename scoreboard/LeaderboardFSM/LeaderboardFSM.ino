@@ -6,7 +6,7 @@
 #define KEY_SELECT 10
 #define KEY_ACCEPT 11
 #define I2C_SLAVE_ADDRESS 0x10
-// #define RESET_LEADERBOARD_SWITCH // define and upload to run reset program
+//#define RESET_LEADERBOARD_SWITCH // uncomment and upload to run reset program
 
 /*
  Now we need a LedControl to work with.
@@ -114,7 +114,7 @@ void I2C_RxHandler(int numBytes) {
   }
 }
 
-
+/*
 void UpdateScoreTest() {
   int scoreReceived = 0;
   scoreReceived = 5;
@@ -133,7 +133,7 @@ void UpdateScoreTest() {
   displayInit(defaultName, playerScoreString, lc3);
   delay(3000);
 }
-
+*/
 void executeCurrentState() {
   //Serial.print("Executing current state : ");
   //Serial.println(stateNames[currentState]);
@@ -143,7 +143,7 @@ void executeCurrentState() {
       {
         //Serial.println("INITIALIZE State");
         initializeLeaderboard();
-        delay(1000);
+        delay(100);
         currentState = UPDATE_SCORE;
         return;
       }

@@ -93,8 +93,8 @@ int I2C_ADDRESS = 8;
 
 void setup() {
   Wire.begin(I2C_ADDRESS);      // join i2c bus with address
-  Wire.onRequest(requestEvent); // register event
-  Wire.onReceive(receiveEvent); // register event
+  Wire.onRequest(onRequestEvent); // register event
+  Wire.onReceive(onReceiveEvent); // register event
 
   // Define Display Pins
   pinMode(23, OUTPUT);
@@ -252,23 +252,28 @@ void loop() {
 
 // function that executes whenever data is requested by master
 // this function is registered as an event, see setup()
-void requestEvent() {
+void onRequestEvent() {
   if (state == GAME_OVER) {
     Wire.write(score); 
     state = GAME_IDLE;
   }
-  else Wire.write(0b11111111);
+  else Wire.write(0xff);
 }
 // function that executes whenever data is received from master
     // this function is registered as an event, see setup()
 
 // The game starts whenever it receives ANYTHING, nothing will force game to stop
-void receiveEvent(int howMany){
+void onReceiveEvent(int howMany){
   String str = "";
   while(Wire.available()) // loop through all 
   {
     char c = Wire.read(); // receive byte as a character
     str += c;
   }
-  difficulty = static_cast<int>(str[0]) - static_cast<int>('S'); // S is difficulty 0, Z is difficulty 7
+  
+  if(state == GAME_IDLE){
+    difficulty = static_cast<int>(str[0]) - static_cast<int>('S'); // S is difficulty 0, Z is difficulty 7
+    difficulty = difficulty/2 + 4; // remap S->Z range to show 4 to 4+4 = 8 chars. 
+    state = START_GAME;
+  } 
 }

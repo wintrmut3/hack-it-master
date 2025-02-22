@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <assert.h>
 #include "logger.h"
-#define MAXTIME 120
+#define MAXTIME 120000
 #define MAX_WAIT_GAME_TIME 5  // max seconds to wait until reading again.
 
 state lastState, currentState, nextState;
@@ -22,11 +22,13 @@ char buff [17];
 uint8_t cart_address = 0x6F;
 uint8_t codeit_address = 0x8;  // currently not set
 uint8_t leaderbrd_address = 0x10;
+uint8_t wireit_address = 0x0A;
 
 uint8_t gameToi2cAddress(game g) {
   switch (g) {
-    case CART: return cart_address;
+    // case CART: return cart_address;
     case CODEIT: return codeit_address;
+    case WIREIT: return wireit_address;
   }
 }
 
@@ -79,7 +81,7 @@ void executeCurrentState() {
       globalScore = 0;
       break;
     case START_SUBGAME:
-      currentGame = CODEIT;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGame = CODEIT; //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
       blinkLED(3, 50);
@@ -88,7 +90,7 @@ void executeCurrentState() {
       log(buff);
 
       Wire.beginTransmission(currentGameAddress);
-      Wire.write('S');  // START GAME CMD
+      Wire.write('S');  // START GAME CMD. TODO: Add difficulty (char)('S' + difficulty)
       Wire.endTransmission();
       break;
     case WAIT_SUBGAME:
@@ -112,23 +114,25 @@ void executeCurrentState() {
       // Serial.println(startWAIT_SUBGAMETime);
 
       blinkLED(4);
-      Wire.requestFrom(currentGameAddress, 1);  // will trigger interrupt to callback onRequest on slave for 1 byte. slave should ignore
+      Wire.requestFrom(currentGameAddress, 1);  // will trigger interrupt to callback onRequest on slave for 1 byte.
+                                                // slave should respond with 0XFF or ignore if it's not done.
       while (Wire.available()) {
         // no commands sent from slave - > master.
-        // if anything's on the bus, it's a score from [0,255]
+        // if anything's on the bus, it's a score from [0,255-1 ] (0xff is reserved for a "not done ack")
 
-        lastGameScore = (uint8_t)Wire.read();  // if read 0xFF then it's not done. otherwise, transition out.
-        if (lastGameScore == 0xff) {
-          lastGameScore = 0;  // not really necceessary
-        } else {
+        lastGameScore = (uint8_t) Wire.read();  // if read 0xFF then it's not done. otherwise, transition out.
+        if (lastGameScore != 0xff) {
           shouldEND_SUBGAME = true;
           // blinkLED(10, 50);
 
-          snprintf(buff,16, "done sg %x -> %d", currentGameAddress, lastGameScore);
+          snprintf(buff, 16, "sg@%x: +%d", currentGameAddress, lastGameScore);
           log(buff); // prints "test 2^1 = 2" ...etc
         }
+        else{
+          delay(MAX_WAIT_GAME_TIME * 1000); // only delay if we got NOT READY response to let the slave continue
+        }
       }
-      delay(MAX_WAIT_GAME_TIME * 1000);
+
       // }
       break;
     case END_SUBGAME:
@@ -145,8 +149,9 @@ void executeCurrentState() {
       Wire.endTransmission();
 
       // char buff4[32];
-      snprintf(buff, "write lb U%d", lastGameScore);
-      log(buff);  // prints "test 2^1 = 2" ...etc
+      snprintf(buff, 16, "p %d -> lb", lastGameScore); // "print <score> to leaderboard"
+      log(buff); 
+
 
       //will autotransition to startSubgame if time is not up.
       break;

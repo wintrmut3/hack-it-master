@@ -1,6 +1,6 @@
 #include <FastLED.h>
 #include<Wire.h>
-#define TESTING
+// #define TESTING
 enum state {
   IDLE,
   START_GAME,
@@ -128,6 +128,19 @@ void loop() {
       #ifdef TESTING
       next_state = START_GAME;
       #endif
+    // idle coloration
+    for(int i =0 ; i< 628; i++){
+        for(int j = 0; j < 4; j++){
+          int color = (sin(i/100.)+1)*0.5*32;
+          CRGB col = CRGB(color, color, color);
+          leftStrip[j] =  col;
+          rightStrip[j] = col;
+        }
+        FastLED.show();
+
+    }
+
+
       break;
     
     case START_GAME:
