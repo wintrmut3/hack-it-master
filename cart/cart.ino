@@ -5,17 +5,23 @@
 // 30 SECONDS
 // 3 LIVES
 
-#define RING_PIN      9
+#define RING_PIN      A0
 #define NUMPIXELS     45
 #define BUTTON_PIN    2
 #define I2C_ADDRESS   0xF6
+
+// Bypass I2C triggered start
+// #define AUTOSTART
+
+// Disable loss condition after 30s timeout
+//#define ENABLE_LOSE
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_KHZ800);
 
 // CONSTANTS/GLOBAL DECLARATIONS
 uint32_t leds[NUMPIXELS];
-uint32_t *pastLed = NULL;
-int delaySpeed = 80;
+uint32_t pastLed = 0;
+int delaySpeed = 80; // ms between moving LEDs
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -25,6 +31,7 @@ long startTime;
 int tonePin = 6;
 bool prevPressed = false;
 int score= 0;
+volatile int difficulty = 0;
 
 typedef enum State {
     GAME_IDLE,
@@ -36,7 +43,16 @@ typedef enum State {
     NUM_STATES
 } state_t;
 
-state_t current_state = GAME_IDLE;
+volatile state_t current_state = GAME_IDLE;
+
+typedef struct mailbox{
+  char message = '\0';
+  int dirty = 0;
+} mailbox_t;
+
+volatile mailbox_t mailbox;
+
+
 
 void setup() {
   Wire.begin(I2C_ADDRESS);      // join i2c bus with address
@@ -45,16 +61,32 @@ void setup() {
 
   pixels.begin();
   pixels.setBrightness(10);
+    // Turn off all pixels first
+  for (int i = 0; i < NUMPIXELS; i++) {
+    leds[i] = pixels.Color(0, 0, 0);
+    pixels.setPixelColor(i, leds[i]);
+  }
+  pixels.show();  // Update the ring
+
+
 
   pinMode(tonePin, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   Serial.begin(9600);
-  randomSeed(analogRead(0));
+  randomSeed(analogRead(1));
   randElement = random(0, NUMPIXELS);
   numTargets = 5;
   lives = 3; 
-  startTime = millis();
+}
+
+void blankLEDs(){
+  for (int i = 0; i < NUMPIXELS; i++) {
+    leds[i] = pixels.Color(0, 0, 0);
+    pixels.setPixelColor(i, leds[i]);
+  }
+  pixels.show();  // Update the ring
+
 }
 
 // Function to select a new random target led and increase speed
@@ -70,10 +102,12 @@ void reset() {
   }
   Serial.println(randElement);
   clockwise = !clockwise;
-  delaySpeed -= 15;
+  delaySpeed -= 15; // 80 -> 65- > 50 -> 35 -> 20 -> 5 -> -10 (how to deal with negatives?)
+  delaySpeed = constrain(delaySpeed, 3,1000); // don't allow it to go negative or impossibly fast
 }
 
 // Function to run clockwise/left to right direction
+// Blocks for a full loop
 void clockwiseCycle() {
 
   // Local variables
@@ -99,11 +133,11 @@ void clockwiseCycle() {
     // Return previous led to its non-selected colour
     int prev_index = (i - 1 < 0) ? 44 : i-1;
     if (prev_index == randElement) {
-      *pastLed = pixels.Color(255,255,0);
+      pastLed = pixels.Color(255,255,0);
     } else {
-      *pastLed = pixels.Color(0,0,0);
+      pastLed = pixels.Color(0,0,0);
     }
-    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.setPixelColor(prev_index, pastLed);
     pixels.show();
 
     while (millis() < currTime + delaySpeed) {
@@ -169,11 +203,11 @@ void counterclockwiseCycle() {
     // Return previous led to its non-selected colour
     int prev_index = (i + 1 > 44) ? 0 : i+1;
     if (prev_index == randElement) {
-      *pastLed = pixels.Color(255,255,0);
+      pastLed = pixels.Color(255,255,0);
     } else {
-      *pastLed = pixels.Color(0,0,0);
+      pastLed = pixels.Color(0,0,0);
     }
-    pixels.setPixelColor(prev_index, *pastLed);
+    pixels.setPixelColor(prev_index, pastLed);
     pixels.show();
 
     while (millis() < currTime + delaySpeed) {
@@ -218,7 +252,7 @@ void win(){
         leds[i] = pixels.Color(0,255,0);
         pixels.setPixelColor(i, leds[i]);
         pixels.show();
-        delay(100);
+        delay(10);
       }
     }
 
@@ -227,7 +261,7 @@ void win(){
         leds[i] = pixels.Color(0,255,0);
         pixels.setPixelColor(i, leds[i]);
         pixels.show();
-        delay(100);
+        delay(10);
       }
     }
 
@@ -236,20 +270,20 @@ void win(){
       pixels.setPixelColor(i, leds[i]);
     }
     pixels.show();
-    delay(500);
+    delay(100);
     for (int loopNum = 0; loopNum<2;loopNum++){
       for (int i =0; i<NUMPIXELS;i++){
         leds[i] = pixels.Color(0,255,0);
         pixels.setPixelColor(i, leds[i]);
       }
       pixels.show();
-      delay(500);
+      delay(100);
       for (int i = 0; i<NUMPIXELS; i++){
         leds[i] = pixels.Color(0,0,0);
         pixels.setPixelColor(i, leds[i]);
       }
       pixels.show();
-      delay(500);
+      delay(100);
     }
 }
 
@@ -340,25 +374,25 @@ void hitSound(){
 void requestEvent() {
   if (current_state == SEND_SCORE) {
     Wire.write(score); 
-    current_state = GAME_IDLE;
+    current_state = GAME_IDLE; // Don't really like state mutation in callbacks; can expose to race condition but not in this case
   }
   else Wire.write(0xFF);
 }
 
 // function that executes whenever data is received from master
 // this function is registered as an event, see setup()
+// Don't mutate current state
 void receiveEvent(int howMany){
-  String str = "";
+  char recv;
   while(Wire.available()) // loop through all 
   {
-    char c = Wire.read(); // receive byte as a character
-    str += c;
+    recv = Wire.read(); // receive byte as a character (last byte)
   }
-  if (str == "S") {
-    current_state = PLAY_GAME;
-    startTime = millis();
+
+  if (recv >= 'S' && recv <= 'Z') {
+    mailbox.dirty = 1;
+    mailbox.message = recv;
     }
-  else current_state = GAME_IDLE;
 }
 
 void game_loop(){
@@ -366,36 +400,89 @@ void game_loop(){
   pixels.setPixelColor(randElement, leds[randElement]);
   pixels.show();
 
+  // Serial.println("Tick game loop step");
+
   if (clockwise) {
     clockwiseCycle();
   } else {
     counterclockwiseCycle();
   }
 
+  #ifdef ENABLE_LOSE
   // check loss (time), check at the end of the loop
   if (millis() - startTime > 30000) {
       loseJingle();
       lose();  
       current_state = GAME_OVER;
   }
+  #endif
+}
+
+int currentIndex = 0;
+void showIdlePattern(){
+ // Clear the ring first
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 0, 0)); // Turn off all pixels
+  }
+  pixels.show();  // Update the LEDs
+
+  // Loop through all pixels and light them in a rotating pattern with varying brightness
+  for (int i = 0; i < NUMPIXELS; i++) {
+    int brightness = map(i, 0, NUMPIXELS - 1, 50, 255); // Vary brightness from low to high
+    int hue = (i * 255 / NUMPIXELS + currentIndex * 5) % 255; // Smooth hue rotation effect
+    pixels.setPixelColor(i, 0, hue*brightness*1.0/255, 0);  // Use custom Wheel function to generate the color
+  }
+
+  pixels.show();  // Update the LEDs
+
+  // Increment the index to create the "rotation" effect
+  currentIndex++;
+  if (currentIndex >= 255) {
+    currentIndex = 0;  // Reset the rotation after a full cycle
+  }
+
+  delay(10); // Adjust speed of rotation
 }
 
 void loop() {
 
   switch(current_state){
     case GAME_IDLE:
-      //turn off all the leds 
       randomSeed(analogRead(0));
       randElement = random(0, NUMPIXELS);
-      numTargets = 5;
-      lives = 3; 
-      delaySpeed = 80;
+      // lives = 3; 
 
+      showIdlePattern();
       //don't need the button read when connected to master
+      #ifdef AUTOSTART
       if (digitalRead(BUTTON_PIN) == LOW){
         current_state = PLAY_GAME;
         startTime = millis();
       }
+      // default difficulty setting
+      numTargets = 5;
+      delaySpeed = 80; // minval = 80-5*numTargets (5ms)
+      blankLEDs();
+      #endif
+      #ifndef AUTOSTART
+      if (mailbox.dirty){
+        // Initialize game configuration globals
+        startTime = millis();
+        current_state = PLAY_GAME;
+        difficulty = (int) (mailbox.message - 'S');  // 0-7
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Starting CART with difficulty %d from mailbox message %c", difficulty, mailbox.message);
+        Serial.println(buf);
+        // reset mailbox
+
+        numTargets = 1+difficulty;
+        delaySpeed = 80-2*difficulty; // 80 to 64
+        mailbox.message = '\0';
+        mailbox.dirty = 0;
+
+        blankLEDs();
+      }
+      #endif 
       break;
     case PLAY_GAME:
       game_loop();
@@ -404,10 +491,12 @@ void loop() {
       for (int i = 0; i < NUMPIXELS; i++){
         leds[i] = pixels.Color(0,0,0);
       }
-      current_state = SEND_SCORE;
+      current_state = SEND_SCORE; 
       break;
     case SEND_SCORE:
-      current_state = GAME_IDLE; //replace this with nothing once connected to master
+      #ifdef AUTOSTART
+      current_state = GAME_IDLE; //bypass score 
+      #endif
       break;
     default:
       break; 

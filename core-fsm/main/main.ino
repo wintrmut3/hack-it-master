@@ -88,13 +88,15 @@ void executeCurrentState() {
       timeLeft = MAXTIME;
       startTime = millis() / 1000;
       globalScore = 0;
+      Serial.println("init state");
       break;
     case START_SUBGAME:
       currentGame = CODEIT;                                //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
       blinkLED(3, 50);
-// Serial.println("Starting subgame");
+      Serial.print("Starting subgame");
+      Serial.println(currentGameAddress);
 #ifdef LOGGING
       snprintf(buff, 16, "start sg@%x", currentGameAddress);
       log(buff);
@@ -179,7 +181,8 @@ void executeCurrentState() {
       //      last state must be from WAIT_SUBGAME assuming last game score was just written
       globalScore += lastGameScore;  // assuming this was just overwritten.
       // writeback to lastGameScore ? as extra verification.
-
+      Serial.print("Last game score");
+      Serial.println(lastGameScore);
 
       // write through to leaderboard and update quickly.
       Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
