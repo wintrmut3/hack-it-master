@@ -29,15 +29,19 @@ char buff[17];
 uint8_t cart_address = 0x6F;
 uint8_t codeit_address = 0x8;  // currently not set
 uint8_t leaderbrd_address = 0x10;
-uint8_t wireit_address = 0x0A;
+uint8_t wireit_address = 0xA;
+uint8_t hexit_address = 0x9;
 
 bool first_161_filter;
 
 uint8_t gameToi2cAddress(game g) {
   switch (g) {
-    // case CART: return cart_address;
+    case CART: return cart_address;
     case CODEIT: return codeit_address;
     case WIREIT: return wireit_address;
+    case HEXIT: return hexit_address;
+    default:
+    return 0;
   }
 }
 
@@ -91,7 +95,7 @@ void executeCurrentState() {
       Serial.println("init state");
       break;
     case START_SUBGAME:
-      currentGame = CODEIT;                                //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGame = HEXIT;                                //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
       blinkLED(3, 50);

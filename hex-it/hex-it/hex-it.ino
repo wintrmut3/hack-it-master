@@ -17,12 +17,12 @@ int latchPin = 5;  // Latch pin (SCLK) of sr is connected to Digital pin 5
 int clockPin = 6;  // Clock pin (RCK) of sr is connected to Digital pin 6
 int dataPin = 7;   // Data pin (SER) of sr is connected to Digital pin 4
 
-int buttonPins[4] = { 9, 10, 11, 12 };
+int buttonPins[4] = { 9, 10, 11, 12 }; // JP1 = 9; JP4 =12.
 int confirmPin = 13;
 int ctr = 0;
 int seg_loading_ctr = 0;
 int current_rand_hex;
-struct mailbox mailbox;
+volatile struct mailbox mailbox;
 // const int sevSegLookup[16] = {126,48,109,121,51,91,95,112,127,123,119,31,78,61,79,71};
 const byte sevSegLookup[16] = { 252, 96, 218, 242, 102, 182, 190, 224, 254, 246, 238, 62, 156, 122, 158, 142 };
 
@@ -60,17 +60,33 @@ void loop() {
   Serial.println(current_state);
   switch (current_state) {
     case IDLE:
+    { // TURN COMPILER WARNINGS ON
       // Serial.print("Confirm status: ");
       // Serial.println(digitalRead(confirmPin));
 
 
+      int show_idle_loop = 1; // debug setting - set to 1 for normal gameplay; 0 to display switch reading on hex while in IDLE
+     if (show_idle_loop) {
+        for (int i = 2; i < 8; i++) {
+          updateShiftRegister(1 << (i));
+          delay(50);
+        }
+      } 
+      else {
+        showSwitchReadingOnHex();
+      } 
+      
+      
+      // [james] see if testing variable has other side effects
+      // if (digitalRead(confirmPin) == HIGH) should_start_game = true;
+
+      #ifdef TESTING
+      if (digitalRead(confirmPin) == HIGH) should_start_game = true;
+      #endif
+
       next_state = should_start_game ? START_GAME : IDLE;
-#ifdef TESTING
-      if (digitalRead(confirmPin) == LOW) next_state = START_GAME;
-#endif
-
       break;
-
+    }  
     case START_GAME:
       // select a random hex digit and flash 3 times
       should_start_game = 0;
@@ -86,14 +102,22 @@ void loop() {
 
       // autotransition
       next_state = WAIT_INPUT;
+
       break;
 
     case WAIT_INPUT:
+
       for (int i = 2; i < 8; i++) {
-        if (digitalRead(confirmPin) == LOW) {
+        if (digitalRead(confirmPin) == HIGH) {
           next_state = SHOW_SOLN;
         }
+
+
         updateShiftRegister(1 << (i));
+#ifdef TESTING
+        showSwitchReadingOnHex();
+#endif
+
         delay(50);
       }
       break;
@@ -101,6 +125,7 @@ void loop() {
 
 
     case SHOW_SOLN:
+    {
       // compute score
       int input_hex = getSwitchReading();
       int score = current_rand_hex == input_hex ? 50 : 0;  // 50 if correct. 0 if wrong.
@@ -129,14 +154,28 @@ void loop() {
       updateShiftRegister(0);  // finally clear the display.
 
       next_state = CLEANUP;
-
-
+    
       break;
-
+    }
     case CLEANUP:  // wait here until the mailbox is cleaned.
       // the ready bit will be cleared by the onRequest callback once it is sent out.
+{
+
+#ifdef TESTING
+      if (digitalRead(confirmPin) == HIGH) next_state = IDLE;
+      Serial.print("Confirm status: ");
+      Serial.println(digitalRead(confirmPin));
+      delay(10);
+#else
       next_state = mailbox.ready ? CLEANUP : IDLE;
+#endif
+
+
       break;
+}
+      default:
+        Serial.println("This is impossible!");
+        break;
   }
 
   current_state = next_state;
@@ -168,13 +207,16 @@ void updateShiftRegister(int leds) {
 
 int getSwitchReading() {
   int reading = 0;
+
+  // 4-i to allow MSB first
+
   for (int i = 0; i < 4; i++) {
     // multiplication has precedence over shift! bruh
-    reading += (1 << i) * digitalRead(buttonPins[i]);
+    reading += (1 << i) * digitalRead(buttonPins[3 - i]);
     Serial.print("Switch ");
     Serial.print(i);
     Serial.print(": ");
-    Serial.print(digitalRead(buttonPins[i]));
+    Serial.print(digitalRead(buttonPins[3 - i]));
     Serial.print("\t");
   }
   Serial.println(reading);
