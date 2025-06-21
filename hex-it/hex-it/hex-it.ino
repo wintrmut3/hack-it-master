@@ -1,5 +1,5 @@
 #include <Wire.h>
-#define TESTING
+// #define TESTING
 enum state {
   IDLE,
   START_GAME,
