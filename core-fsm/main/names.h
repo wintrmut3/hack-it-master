@@ -10,10 +10,10 @@ enum state{
 };
 
 enum game{
-  CART,
   HEXIT,
   CODEIT,
   WIREIT,
+  CART,
   NUM_GAMES
 };
 

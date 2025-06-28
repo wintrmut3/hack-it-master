@@ -5,12 +5,12 @@
 #include <assert.h>
 
 
-// #define LOGGING // undefine this to disable logging
+#define LOGGING // undefine this to disable logging
 #ifdef LOGGING
 #include "logger.h"
 #endif
 
-#define MAXTIME 120000
+#define MAXTIME 1200 // Max game runtime in seconds [testing - set to 1000. ]
 #define MAX_WAIT_GAME_TIME 5  // max seconds to wait until reading again.
 
 state lastState, currentState, nextState;
@@ -70,7 +70,7 @@ void calculateNextState() {
       nextState = shouldEND_SUBGAME ? END_SUBGAME : WAIT_SUBGAME;
       break;
     case END_SUBGAME:
-      if (millis() - startTime >= MAXTIME * 1000) nextState = END_ALL_GAMES;
+      if (millis() - startTime >= MAXTIME * 1000UL) nextState = END_ALL_GAMES;
       else nextState = START_SUBGAME;
       break;
     case END_ALL_GAMES:
@@ -85,6 +85,8 @@ void calculateNextState() {
   }
 }
 
+uint16_t game_ctr = 0;
+
 void executeCurrentState() {
   switch (currentState) {
     case INIT:  // the start of one series of subgames
@@ -95,7 +97,8 @@ void executeCurrentState() {
       Serial.println("init state");
       break;
     case START_SUBGAME:
-      currentGame = HEXIT;                                //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
+      currentGame = (enum game)(game_ctr % NUM_GAMES);
+      game_ctr++;                                //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
       currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
       shouldEND_SUBGAME = false;
       blinkLED(3, 50);
@@ -141,7 +144,7 @@ void executeCurrentState() {
       }
 
 
-      Wire.requestFrom(currentGameAddress, 1);  // will trigger interrupt to callback onRequest on slave for 1 byte.
+      Wire.requestFrom(currentGameAddress, (size_t) 1);  // will trigger interrupt to callback onRequest on slave for 1 byte.
                                                 // slave should respond with 0XFF or ignore if it's not done.
 
       // if it doesn't get data on the bus, is it 161?

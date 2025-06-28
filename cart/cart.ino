@@ -21,7 +21,7 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, RING_PIN, NEO_GRB + NEO_
 // CONSTANTS/GLOBAL DECLARATIONS
 uint32_t leds[NUMPIXELS];
 uint32_t pastLed = 0;
-int delaySpeed = 80; // ms between moving LEDs
+uint16_t delaySpeed = 80; // ms between moving LEDs
 int currLed = 0;
 bool clockwise = true;
 int randElement;
@@ -112,11 +112,11 @@ void clockwiseCycle() {
 
   // Local variables
   long checkTime = 0;
-  long currTime = 0;
+  unsigned long currTime = 0;
   bool repeat = true;
 
   for (int i = currLed; i < NUMPIXELS; i ++) {
-    bool invalPress = false;
+    // bool invalPress = false;
 
     currTime = millis();
     // Indicate which led is currently selected
@@ -126,7 +126,7 @@ void clockwiseCycle() {
       checkTime = millis();
     } else {
       leds[i] = pixels.Color(0,0,255);
-      invalPress = true;
+      // invalPress = true;
     }
     pixels.setPixelColor(i, leds[i]);
 
@@ -185,7 +185,7 @@ void counterclockwiseCycle() {
 
   for (int i = currLed; i >= 0; i --) {
 
-    bool invalPress = false;
+    // bool invalPress = false;
     
     currTime = millis();
     // Indicate which led is currently selected
@@ -196,7 +196,7 @@ void counterclockwiseCycle() {
       checkTime = millis();
     } else {
       leds[i] = pixels.Color(0,0,255);
-      invalPress = true;
+      // invalPress = true;
     }
     pixels.setPixelColor(i, leds[i]);
 
@@ -335,10 +335,10 @@ void winJingle(){
   noTone(100); 
   tone(tonePin,660);
   delay(200);
-  noTone(500); 
+  noTone(500UL); 
   tone(tonePin,880);
   delay(200);
-  noTone(500);
+  noTone(500UL);
   tone(tonePin,880);
   delay(200);
   noTone(200);  
@@ -383,7 +383,7 @@ void requestEvent() {
 // this function is registered as an event, see setup()
 // Don't mutate current state
 void receiveEvent(int howMany){
-  char recv;
+  char recv='\0';
   while(Wire.available()) // loop through all 
   {
     recv = Wire.read(); // receive byte as a character (last byte)
