@@ -8,6 +8,7 @@
 ////----------------6.作者：神秘藏宝室			    ----------------
 ////***********************************************************************
 #include <Arduino.h>
+#include <Wire.h>
 
 //IO配置
 #define LEDARRAY_D 2
@@ -22,7 +23,6 @@
 #define KEY_Right 11
 
 #define led 13
-
 
 #define Num_Word 1				//液晶能显示的汉字个数
 
@@ -222,23 +222,38 @@ unsigned char leftScreen[10][1][32] = {
 
 };
 
-
-
-
-
-
-
-
-
-
-
 const unsigned char blank = 0xFF;
 const unsigned char oneDot = 0xFE;
 int gameSpeed = 35;
 
+enum state {
+  IDLE,
+  START_GAME,
+  WAIT_GAME,
+  END_GAME,
+  CLEANUP
+};
 
+state current_state = IDLE, next_state = IDLE;
+bool should_start_game = false;
+bool game_complete = false;
+int game_score = 0;
 
+void OnWireRequest() {
+  if (game_complete) {
+    Wire.write(game_score);
+    game_complete = false;
+  } else {
+    Wire.write(0xFF); // Not ready
+  }
+}
 
+void OnWireReceive() {
+  char c = Wire.read();
+  if (c == 'S') {
+    should_start_game = true;
+  }
+}
 
 void setup()
 {
@@ -260,147 +275,114 @@ void setup()
   
   Shift_Count = 0;
 	Clear_Display();
+
+  Wire.begin(0x42);
+  Wire.onReceive(OnWireReceive);
+  Wire.onRequest(OnWireRequest);
 }
 
-void loop()
-{ 
-  unsigned int i;
-  // while(1) {
-  //   Display(Blank_Screen);
-  // }
-  // for(i = 0; i < 32; i++) {
-  //   Player[0][i] = blank;
-  // }
-  
-  // Serial.print(Shift_Count);
-  // Serial.print("\n");
-  
-  
+void loop() {
+  switch (current_state) {
+    case IDLE:
+      next_state = should_start_game ? START_GAME : IDLE;
+      break;
 
-  // if(flipDir) {
-  //   Player[0][15-playerShift] = 0x7F;    
-  // }
-  // else {
-  //   Player[0][playerShift] = 0x7F;
-  // }
-      
-  if(firstTime) {
-      for(i = 0 ; i < DURATION; i ++)			//Movement speed setting
-        {
-          Display(livesScreen[5]);
-        }   
-    firstTime = false;
-  }
-  
-  
-  Display_Swap_Buffer[0][playerShift] = (Display_Swap_Buffer[0][playerShift] & Player[0][playerShift]);
+    case START_GAME:
+      should_start_game = false;
+      game_score = 0;
+      lives = 5;
+      points = -1;
+      firstTime = true;
+      randomDot = random(16);
+      Word[0][randomDot] = oneDot;
+      Shift_Count = 0;
+      Clear_Display();
+      next_state = WAIT_GAME;
+      break;
 
-  int oneDotCount = 0;
-  if(Shift_Count == 7) {
-    for(int i = 0; i < 16; i++) {
-      if(Display_Swap_Buffer[0][i] == 0x7F) {
-        oneDotCount++;
-      }
-    }
-    if(oneDotCount == 1) {
-      points++;
-      if(points%8 == 0) {
-        gameSpeed-=5;        
-      }
-      if(gameSpeed <=15) {
-        gameSpeed = 15;
-      }
-      Serial.print("Points: ");
-      Serial.print(points);
-      Serial.print("\n");
-    }
-    else {
-      lives--;
-      Serial.print("Lives Remaining: ");
-      Serial.print(lives);
-      Serial.print("\n");
-
-      for(i = 0 ; (i < DURATION); i ++)			//Movement speed setting
+    case WAIT_GAME:
       {
-          Display(livesScreen[lives]);
-      } 
-    }
+        unsigned int i;
+        if(firstTime) {
+          for(i = 0 ; i < DURATION; i ++) {
+            Display(livesScreen[5]);
+          }   
+          firstTime = false;
+        }
+        
+        Display_Swap_Buffer[0][playerShift] = (Display_Swap_Buffer[0][playerShift] & Player[0][playerShift]);
 
-    if(lives == 0) {
-      Serial.print("Game Over\n");
-      for(i = 0 ; i < 100; i ++)			//Movement speed setting
-      {
+        int oneDotCount = 0;
+        if(Shift_Count == 7) {
+          for(int i = 0; i < 16; i++) {
+            if(Display_Swap_Buffer[0][i] == 0x7F) {
+              oneDotCount++;
+            }
+          }
+          if(oneDotCount == 1) {
+            points++;
+            if(points%8 == 0) {
+              gameSpeed-=5;        
+            }
+            if(gameSpeed <=15) {
+              gameSpeed = 15;
+            }
+            Serial.print("Points: ");
+            Serial.print(points);
+            Serial.print("\n");
+          }
+          else {
+            lives--;
+            Serial.print("Lives Remaining: ");
+            Serial.print(lives);
+            Serial.print("\n");
+
+            for(i = 0 ; (i < DURATION); i ++) {
+              Display(livesScreen[lives]);
+            } 
+          }
+
+          if(lives == 0) {
+            Serial.print("Game Over\n");
+            game_complete = true;
+            next_state = END_GAME;
+            break;
+          }
+        }
+
+        for(i = 0 ; i < gameSpeed; i ++) {
+          Display(Display_Swap_Buffer);
+        }
+
+        Scan_Key();
+        Calc_Shift();
+
+        Shift_Count++;
+
+        if(Shift_Count == 16) { 
+          Word[0][randomDot] = blank;
+          randomDot = random(16);
+          Word[0][randomDot] = oneDot; 
+          Shift_Count = 0;    
+        }
+
+        next_state = WAIT_GAME;
+      }
+      break;
+
+    case END_GAME:
+      for (unsigned int i = 0; i < 100; i++) {
         Display(Full);
       }
-      while(1) {
-        int rightDigit = points%10;
-        int leftDigit = points/10;
-        unsigned char scoreScreen[1][32];
-        i = 0;
-        for(i =0; i < 32; i++) {
-          scoreScreen[0][i] = leftScreen[leftDigit][0][i] & rightScreen[rightDigit][0][i];
-        }
-        Display(scoreScreen);
-        // int j = 0;
-        // int k =0;
-        // for(i = 0; i < 10; i++) {
-        //   for(j = 0; j < 10; j++) {
-        //     rightDigit = j;
-        //     leftDigit = i;
-        //     for(k =0; k < 32; k++) {
-        //       scoreScreen[0][k] = leftScreen[leftDigit][0][k] & rightScreen[rightDigit][0][k];
-        //     }
-        //     int l = 0;
-        //     for(l = 0; l < 80; l++) {
-        //       Display(scoreScreen);
-        //     }
-        //   }
-        // }
+      next_state = CLEANUP;
+      break;
 
-
-        
-      }
-    }
+    case CLEANUP:
+      next_state = IDLE;
+      break;
   }
-  
 
-
-
- 
-
- 
-
-  // if(Display_Swap_Buffer[0][playerShift] == 0x7F) {
-  //   Display(Full);
-  // }
-
-	for(i = 0 ; i < gameSpeed; i ++)			//Movement speed setting
-	{
-		Display(Display_Swap_Buffer);
-	}
-
-
-  
-  Scan_Key();
-	Calc_Shift();
-
-	Shift_Count++;
-  
-
-
-
-	if(Shift_Count == 16)
-	{ 
-    Word[0][randomDot] = blank;
-    // Serial.print(playerShift);
-    // Serial.print("\n");    
-    randomDot = random(16);
-    Word[0][randomDot] = oneDot; 
-		Shift_Count = 0;    
-	}
-
-
-
+  current_state = next_state;
 }
 
 //************************************************************
@@ -422,7 +404,6 @@ void Scan_Key()
 { 
 	if(digitalRead(KEY_Right) == 0)
 	{
-    // Serial.print("Right Key Pressed\n");
     Player[0][playerShift] = blank;
     playerShift--;
     if(playerShift == -1) 
@@ -435,7 +416,6 @@ void Scan_Key()
 
 	if(digitalRead(KEY_Left) == 0)
 	{
-    // Serial.print("Left Key Pressed\n");
     Player[0][playerShift] = blank;
     playerShift++;
     if(playerShift == 16) 
@@ -493,15 +473,6 @@ void Calc_Shift() // Calculates how the word should shift (Display_Swap_Buffer d
 		{
 			temp = 0x80; // Reset back to analyze first position
 		}
-
-
-
-    // for(i = 0 ; i < 16 ;i++)
-		// { 	
-		// }
-
-
-    
 }
 
 //************************************************************
@@ -510,8 +481,6 @@ void Calc_Shift() // Calculates how the word should shift (Display_Swap_Buffer d
 void Display(unsigned char dat[][32])					
 {
 	unsigned char i;
-  // Serial.print(playerShift);
-  // Serial.print("\n");
 	for( i = 0 ; i < 16 ; i++ )
 	{
 		digitalWrite(LEDARRAY_G, HIGH);		//更新数据时候关闭显示。等更新完数据，打开138显示行。防止重影。
