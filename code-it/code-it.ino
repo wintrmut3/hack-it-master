@@ -1,7 +1,10 @@
 #include <LedControl.h>
 #include <Keypad.h>
 #include <Wire.h>
-//#define AUTOSTART
+
+#define USE_SERIAL // comment this out to disable serial.prints
+
+// #define AUTOSTART
 /*
  Now we need a LedControl to work with.
  ***** These pin numbers will probably not work with your hardware *****
@@ -11,7 +14,8 @@
  pin c is connected to LOAD 
  We have only a single MAX72XX. (x=1)
  */
-LedControl lc = LedControl(23, 12, 14, 1);
+// LedControl lc = LedControl(23, 12, 14, 1);
+LedControl lc = LedControl(13, 12, 11, 1);
 
 /* we always wait a bit between updates of the display */
 unsigned long delaytime = 250;
@@ -55,8 +59,10 @@ char hexaKeys[ROWS][COLS] = {
   { '4', '5', '6' },
   { '7', '8', '9' }
 };
-byte rowPins[ROWS] = { 32, 33, 25 };  // Digital pins used by the keypads (R1, R2, R3)
-byte colPins[COLS] = { 17, 5, 18 };   // Digital pins used by the keypads (C1, C2, C3)
+// byte rowPins[ROWS] = { 32, 33, 25 };  // Digital pins used by the keypads (R1, R2, R3)
+// byte colPins[COLS] = { 17, 5, 18 };   // Digital pins used by the keypads (C1, C2, C3)
+byte rowPins[ROWS] = { 8, 9, 10 };  // Digital pins used by the keypads (R1, R2, R3)
+byte colPins[COLS] = { 2, 3, 4 };   // Digital pins used by the keypads (C1, C2, C3)
 Keypad kp = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 // Global variable remembering the target
@@ -89,10 +95,12 @@ int difficulty = 7;
  */
 uint8_t score = 0;
 
-int I2C_ADDRESS = 8;
+int I2C_ADDRESS = 0xC; 
 
 void setup() {
+  #ifdef USE_SERIAL
   Serial.begin(9600);
+  #endif
   Wire.begin(I2C_ADDRESS);         // join i2c bus with address
   Wire.onRequest(onRequestEvent);  // register event
   Wire.onReceive(onReceiveEvent);  // register event
@@ -114,7 +122,9 @@ void setup() {
 
   // Initialize state
   state = GAME_IDLE;
-
+  #ifdef USE_SERIAL
+  Serial.println("Starting setup");
+  #endif
 
 }
 
@@ -126,11 +136,14 @@ void loop() {
     displayString("-");
     // // Test: just move to start game state
     #ifdef AUTOSTART
+      #ifdef USE_SERIAL
       Serial.println("Idle ");
-
+      #endif
     if (state == GAME_IDLE) {
+      // EXPERIMENT code - not real logic
       // difficulty = static_cast<int>(str[0]) - static_cast<int>('S');  // S is difficulty 0, Z is difficulty 7
-      // difficulty = difficulty / 2 + 4;                                // remap S->Z range to show 4 to 4+4 = 8 chars.
+      // difficulty = difficulty / 2 + 4;
+                                      // remap S->Z range to show 4 to 4+4 = 8 chars.
       difficulty = 4;
       state = START_GAME;
     }
@@ -143,8 +156,9 @@ void loop() {
     // Next state
     state = START_ROUND;
   } else if (state == START_ROUND) {
+    #ifdef USE_SERIAL
       Serial.println("Starting game");
-
+    #endif
     // Generate the random value and flash it
     target = "";
     num = "";
@@ -160,8 +174,9 @@ void loop() {
     displayString(target);
     delay(FLASHING_DELAY);
     displayString("");
+    #ifdef USE_SERIAL
     Serial.println("Move to for input");
-
+    #endif
 
     // Proceed to next state
     state = INPUT_PHASE;
@@ -170,9 +185,10 @@ void loop() {
     char keyPressed = kp.getKey();
     if (keyPressed && keyPressed >= (char)'1' && keyPressed <= (char)'9') {
       num += keyPressed;
+      #ifdef USE_SERIAL
       Serial.print("Actual input: ");
       Serial.println(num);
-    
+      #endif
       displayString(num);
     
     }

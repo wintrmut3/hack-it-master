@@ -41,6 +41,13 @@ void setup() {
   pinMode(latchPin, OUTPUT);
   pinMode(dataPin, OUTPUT);
   pinMode(clockPin, OUTPUT);
+
+  // state debug a4 b3 c2
+  pinMode(4, OUTPUT);
+  pinMode(3, OUTPUT);
+  pinMode(2, OUTPUT);
+
+
   pinMode(confirmPin, INPUT_PULLUP);
   for (int i = 0; i < 4; i++) pinMode(buttonPins[i], INPUT);
 
@@ -55,9 +62,19 @@ void setup() {
   current_state = IDLE;
 }
 
+void show_state(state s){
+  int i = (int) s;
+  digitalWrite(4, s%2 ==1);
+  digitalWrite(3, s/2 ==1);
+  digitalWrite(2, s/4 ==1);
+
+
+}
+
 void loop() {
   Serial.print("Current state: ");
   Serial.println(current_state);
+  show_state(current_state);
   switch (current_state) {
     case IDLE:
     { // TURN COMPILER WARNINGS ON
