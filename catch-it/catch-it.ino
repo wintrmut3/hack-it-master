@@ -10,6 +10,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#define AUTOSTART
+
 // IO配置
 #define LEDARRAY_D 2
 #define LEDARRAY_C 3
@@ -38,7 +40,7 @@ unsigned char Timer0_Count = 0;
 unsigned char temp = 0x80;
 unsigned char Shift_Count = 0;
 unsigned int randomDot = 0;
-unsigned int playerShift = 7;
+int playerShift = 7;
 unsigned int lives = 5;
 unsigned char Word[1][32] =
 	{
@@ -285,6 +287,11 @@ void loop()
 	{
 	case GAME_IDLE:
 	{
+    // AUTOSTART can be used to play the game in isolation w/o a master controller
+    #ifdef AUTOSTART
+      delay(5000);
+      state = START_GAME;
+    #endif
 		// onReceiveEvent will transition to START_GAME
 	}
 	break;
@@ -347,11 +354,14 @@ void loop()
 				Serial.print(lives);
 				Serial.print("\n");
 
-				// show remaining dots
+				// show remaining lives
+				if (lives >= 0){ 
+
 				for (int i = 0; (i < DURATION); i++)
 				{
 					Display(livesScreen[lives]);
 				}
+			}
 			}
 		}
 
@@ -417,6 +427,10 @@ void loop()
 	case CLEANUP:
 	{
 		// onRequestEvent will transition to GAME_IDLE
+    #ifdef AUTOSTART
+    delay(3000);
+    state = GAME_IDLE;
+    #endif
 	}
 	break;
 	} // end switch
