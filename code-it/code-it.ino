@@ -4,7 +4,7 @@
 
 #define USE_SERIAL // comment this out to disable serial.prints
 
-// #define AUTOSTART
+#define AUTOSTART
 /*
  Now we need a LedControl to work with.
  ***** These pin numbers will probably not work with your hardware *****

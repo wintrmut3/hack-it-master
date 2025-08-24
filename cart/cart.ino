@@ -11,7 +11,7 @@
 #define I2C_ADDRESS   0xF6
 
 // Bypass I2C triggered start
-// #define AUTOSTART
+#define AUTOSTART
 
 // Disable loss condition after 30s timeout
 //#define ENABLE_LOSE
