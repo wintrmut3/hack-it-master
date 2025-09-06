@@ -31,6 +31,8 @@ uint8_t codeit_address = 0xC;  // currently not set - temp - C . before was 0x8
 uint8_t leaderbrd_address = 0x10;
 uint8_t wireit_address = 0xA;
 uint8_t hexit_address = 0x9;
+uint8_t catchit_address = 0x13;
+
 
 // bool first_161_filter;
 
@@ -40,6 +42,7 @@ uint8_t gameToi2cAddress(game g) {
     case CODEIT: return codeit_address;
     case WIREIT: return wireit_address;
     case HEXIT: return hexit_address;
+    case CATCHIT: return catchit_address;
     default:
       return 0;
   }
@@ -101,7 +104,7 @@ void calculateNextState() {
 
 uint16_t game_ctr = 0;
 
-game test_games[] = { CODEIT };
+game test_games[] = { CART };
 // game test_games[] = { HEXIT };
 
 uint8_t n_test_games = 1;

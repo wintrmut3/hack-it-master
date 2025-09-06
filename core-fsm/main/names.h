@@ -14,6 +14,7 @@ enum game{
   CODEIT,
   WIREIT,
   CART,
+  CATCHIT,
   NUM_GAMES
 };
 

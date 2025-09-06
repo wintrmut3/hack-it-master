@@ -10,7 +10,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define AUTOSTART
+// #define AUTOSTART
 
 // IO配置
 #define LEDARRAY_D 2
@@ -41,7 +41,9 @@ unsigned char temp = 0x80;
 unsigned char Shift_Count = 0;
 unsigned int randomDot = 0;
 int playerShift = 7;
-unsigned int lives = 5;
+
+unsigned int initialLives = 2;
+unsigned int lives = initialLives;
 unsigned char Word[1][32] = {
 
   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -237,8 +239,8 @@ void setup() {
   pinMode(LEDARRAY_DI, OUTPUT);
   pinMode(LEDARRAY_CLK, OUTPUT);
   pinMode(LEDARRAY_LAT, OUTPUT);
-  pinMode(KEY_Right, INPUT);
-  pinMode(KEY_Left, INPUT);
+  pinMode(KEY_Right, INPUT_PULLUP);
+  pinMode(KEY_Left, INPUT_PULLUP);
   Serial.begin(9600);
 
   randomSeed(analogRead(0));
@@ -289,13 +291,14 @@ void loop() {
         gameSpeed = initGameSpeed - difficulty;
         showInitialLivesCount = true;
         state = PLAY_GAME;
+        lives = initialLives;
       }
       break;
     case PLAY_GAME:
       {
         if (showInitialLivesCount) {
           for (int i = 0; i < DURATION; i++) {
-            Display(livesScreen[5]);
+            Display(livesScreen[lives]);
           }
           showInitialLivesCount = false;
         }
@@ -363,20 +366,26 @@ void loop() {
         }
         if (lives == 0) {
           Serial.print("Game Over\n");
-          for (int i = 0; i < 100; i++) {
-            Display(Full);
-          }
+          // for (int i = 0; i < 100; i++) {
+          //   Display(Full);
+          // }
 
           int rightDigit = score % 10;
           int leftDigit = score / 10;
           int displayScoreTime_ms = 1000;
           unsigned char scoreScreen[1][32];
 
+          Serial.println("Starting display scorescreen");
           for (int i = 0; i < 32; i++) {
             scoreScreen[0][i] = leftScreen[leftDigit][0][i] & rightScreen[rightDigit][0][i];
           }
-          Display(scoreScreen);
-          delay(displayScoreTime_ms);  // display score for 1000ms
+
+          for (int i = 0; i < DURATION; i++) {
+            Display(scoreScreen);
+          }
+          // delay(displayScoreTime_ms);  // display score for 1000ms
+          Serial.println("Done display scorescreen");
+
           state = CLEANUP;
           // int j = 0;
           // int k =0;

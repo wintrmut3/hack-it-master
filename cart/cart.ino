@@ -8,7 +8,7 @@
 #define RING_PIN      A0
 #define NUMPIXELS     45
 #define BUTTON_PIN    2
-#define I2C_ADDRESS   0xF6
+#define I2C_ADDRESS   0x6F
 
 // Bypass I2C triggered start
 // #define AUTOSTART
@@ -68,8 +68,6 @@ void setup() {
   }
   pixels.show();  // Update the ring
 
-
-
   pinMode(tonePin, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
@@ -100,7 +98,7 @@ void reset() {
   while (randElement == oldRand || randElement == (oldRand + 1) || randElement == (oldRand - 1)) {
     randElement = random(0, NUMPIXELS);
   }
-  Serial.println(randElement);
+  // Serial.println(randElement);
   clockwise = !clockwise;
   delaySpeed -= 15; // 80 -> 65- > 50 -> 35 -> 20 -> 5 -> -10 (how to deal with negatives?)
   delaySpeed = constrain(delaySpeed, 3,1000); // don't allow it to go negative or impossibly fast
@@ -144,7 +142,7 @@ void clockwiseCycle() {
       // Check if user input was instated during correct time frame
       if ((millis() - checkTime <= delaySpeed) && (digitalRead(BUTTON_PIN) == LOW)) {
         hitSound();
-
+        score += 100/numTargets;
         // Check win (targets)
         if (numTargets == 1) {
           winJingle();
@@ -374,6 +372,7 @@ void hitSound(){
 void requestEvent() {
   if (current_state == SEND_SCORE) {
     Wire.write(score); 
+    score=0; // reset score to 0
     current_state = GAME_IDLE; // Don't really like state mutation in callbacks; can expose to race condition but not in this case
   }
   else Wire.write(0xFF);
@@ -392,7 +391,7 @@ void receiveEvent(int howMany){
   if (recv >= 'S' && recv <= 'Z') {
     mailbox.dirty = 1;
     mailbox.message = recv;
-    }
+  }
 }
 
 void game_loop(){
@@ -465,6 +464,7 @@ void loop() {
       blankLEDs();
       #endif
       #ifndef AUTOSTART
+
       if (mailbox.dirty){
         // Initialize game configuration globals
         startTime = millis();
@@ -488,14 +488,16 @@ void loop() {
       game_loop();
       break;
     case GAME_OVER:
+    {
       for (int i = 0; i < NUMPIXELS; i++){
         leds[i] = pixels.Color(0,0,0);
       }
       current_state = SEND_SCORE; 
+    }
       break;
     case SEND_SCORE:
       #ifdef AUTOSTART
-      current_state = GAME_IDLE; //bypass score 
+      current_state = GAME_IDLE; //bypass score waiting
       #endif
       break;
     default:
