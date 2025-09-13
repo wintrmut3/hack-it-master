@@ -218,6 +218,10 @@ void onRequestEvent() {
 // The game starts when it recieves anything
 void onReceiveEvent(int howMany) {
   String str = "";
+  
+  //scanner will tx 0 characters for proof of life @ start of game
+  if (!Wire.available()) return;
+  
   while (Wire.available())  // loop through all
   {
     char c = Wire.read();  // receive byte as a character

@@ -13,7 +13,7 @@ sprintf(buff, "test: 2^%d = %lu", i, long(2<<i));
 log(buff); // prints "test 2^1 = 2" ...etc
 */
 
-
+#pragma once
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>

@@ -10,6 +10,11 @@
 #include "logger.h"
 #endif
 
+#define AUTOSCAN // undefine this to disable autoscan of i2c games
+#ifdef AUTOSCAN
+#include "scanner.h"
+#endif
+
 #define MAXTIME 1200          // Max game runtime in seconds [testing - set to 1000. ]
 #define MAX_WAIT_GAME_TIME 5  // max seconds to wait until reading again.
 
@@ -26,27 +31,14 @@ game currentGame;
 
 char buff[17];
 
-uint8_t cart_address = 0x6F;
-uint8_t codeit_address = 0xC;  // currently not set - temp - C . before was 0x8
-uint8_t leaderbrd_address = 0x10;
-uint8_t wireit_address = 0xA;
-uint8_t hexit_address = 0x9;
-uint8_t catchit_address = 0x13;
+// For cycling through currentGame
+uint16_t game_ctr = 0;
+game test_games[] = { NONE, NONE,NONE,NONE, NONE, NONE, NONE, NONE, NONE, NONE }; // add extra entries to prevent array out of bounds access 
 
-
+// uint8_t n_test_games = sizeof(test_games)/sizeof(int);
 // bool first_161_filter;
 
-uint8_t gameToi2cAddress(game g) {
-  switch (g) {
-    case CART: return cart_address;
-    case CODEIT: return codeit_address;
-    case WIREIT: return wireit_address;
-    case HEXIT: return hexit_address;
-    case CATCHIT: return catchit_address;
-    default:
-      return 0;
-  }
-}
+
 
 void blinkLED(int times = 1, int ms = 100) {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -102,12 +94,7 @@ void calculateNextState() {
   }
 }
 
-uint16_t game_ctr = 0;
 
-game test_games[] = { CART };
-// game test_games[] = { HEXIT };
-
-uint8_t n_test_games = 1;
 
 void executeCurrentState() {
   switch (currentState) {
@@ -127,8 +114,14 @@ void executeCurrentState() {
         // game_ctr++;
 
         // go through games under test only
-        currentGame = test_games[game_ctr % n_test_games];
+        currentGame = test_games[game_ctr];
         game_ctr++;
+
+        // reset to 0 based on NONE boundary logic in test_games array
+        if(currentGame == NONE){
+          game_ctr = 0;
+          currentGame = test_games[game_ctr];
+        }
 
 
         //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
@@ -299,6 +292,7 @@ void executeCurrentState() {
   }
 }
 
+
 void setup() {
   // first time setup only, PWRON state
   Wire.begin();
@@ -309,6 +303,12 @@ void setup() {
 #ifdef LOGGING
   initLogger();
   log("Setup complete!");
+#endif
+
+#ifdef AUTOSCAN
+  delay(1000); //allow subgames to complete i2c initialization
+  getConnectedGames(test_games); // autodiscover games, fill in test_games with non NONE left to right.
+  log("autoscan ok");
 #endif
 
   // first_161_filter = true;

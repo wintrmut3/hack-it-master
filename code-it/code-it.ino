@@ -292,6 +292,10 @@ void onRequestEvent() {
 // The game starts whenever it receives ANYTHING, nothing will force game to stop
 void onReceiveEvent(int howMany) {
   String str = "";
+
+  // i2c scanner skip -> does a begin/end transmission.
+  if(!Wire.available()) return; 
+
   while (Wire.available())  // loop through all
   {
     char c = Wire.read();  // receive byte as a character
