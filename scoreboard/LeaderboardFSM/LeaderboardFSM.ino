@@ -48,7 +48,8 @@ unsigned long scanDelay = 200;
 enum States {
   INITIALIZE,
   UPDATE_SCORE,
-  PLAYER_INPUT
+  PLAYER_INPUT,
+  FINALIZE
 };
 
 const char *stateNames[] = { "INITIALIZE", "UPDATE_SCORE", "PLAYER_INPUT" };
@@ -61,8 +62,10 @@ struct i2c_data {
   bool isFreshData = false;
 };
 
-struct i2c_data i2c_mailbox;
+volatile struct i2c_data i2c_mailbox;
 
+uint32_t playerInputTOStart = 0;
+uint32_t playerInputTOMax = 30* 1000;  // 30 second timeout for player input
 
 
 /*
@@ -83,6 +86,17 @@ void blinkLED(int times = 1, int ms = 100) {
     delay(ms);
   }
 }
+
+void I2C_TxHandler() {
+  // master only expects a synchronization response when the LB is being written/finalized at end of all games
+  if(currentState == PLAYER_INPUT){
+    Wire.write(0xFF); // Acknowledge - but not done
+  }else if(currentState == FINALIZE){
+    Wire.write(0x00); // Acknowledge - done
+    currentState = INITIALIZE; // move to initialize after finalizing
+  }
+}
+
 
 void I2C_RxHandler(int numBytes) {
   blinkLED();  // blink once on data recv
@@ -157,7 +171,7 @@ void executeCurrentState() {
           // continuously read from / poll the i2c mailbox, if a fresh message is there then handle it.
           if (i2c_mailbox.isFreshData) {
             // process and set fresh flag to false so we don't re-read it
-            if (i2c_mailbox.scoreUpdate > 0) {
+            if (i2c_mailbox.scoreUpdate >= 0) {
               // a score was recieved but the game continues
               int scoreReceived = i2c_mailbox.scoreUpdate;
               playerScore += scoreReceived;
@@ -180,19 +194,29 @@ void executeCurrentState() {
 
     case PLAYER_INPUT:
       {
+        playerInputTOStart = millis();
+
         //Serial.println("PLAYER_INPUT State");
-        while (1) {
+        // 30s fallback
+        while (millis()-playerInputTOStart < playerInputTOMax) {
           Scan_Key();
           delay(scanDelay);
 
           if (globalReset) {
             globalReset = false;
-            currentState = INITIALIZE;
+            currentState = FINALIZE;
             return;
           }
         }
+        break;
       }
-
+    case FINALIZE:
+      {
+        // transition to INITIALIZE after returning control to master
+        // T/O here
+        // transition logic in I2C_TxHandler
+        break;
+      }
     default:
       return;
   }
@@ -874,6 +898,8 @@ void setup() {
 
   Wire.begin(I2C_SLAVE_ADDRESS);  // start as address 0x33
   Wire.onReceive(I2C_RxHandler);
+  Wire.onRequest(I2C_TxHandler);
+
   // initializeLeaderboard();
   currentState = INITIALIZE;
 }

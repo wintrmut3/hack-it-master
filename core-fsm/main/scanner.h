@@ -2,7 +2,8 @@
 #include "logger.h"
 
 //initialize these. game test_games[] = { CART, CATCHIT};
-void getConnectedGames(game* connectedGames) {
+// returns number of connected games found
+int getConnectedGames(game* connectedGames) {
 
   int wptr = 0;
   Serial.println("Scanning...");
@@ -39,5 +40,6 @@ void getConnectedGames(game* connectedGames) {
       Serial.println(address, HEX);
     }
   }
-  return connectedGames;
+  return wptr;
+  // return connectedGames; // return is inplace
 }

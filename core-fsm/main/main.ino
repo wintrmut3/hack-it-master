@@ -3,6 +3,8 @@
 #include "names.h"
 #include <Wire.h>
 #include <assert.h>
+#include "gameSignaller.h"
+#include "timer.h"
 
 
 #define LOGGING // undefine this to disable logging
@@ -15,14 +17,13 @@
 #include "scanner.h"
 #endif
 
-#define MAXTIME 1200          // Max game runtime in seconds [testing - set to 1000. ]
-#define MAX_WAIT_GAME_TIME 5  // max seconds to wait until reading again.
+#define MAXTIME 15             // Max game runtime in seconds [testing - set to 1000. ]
+#define MAX_WAIT_GAME_TIME 2  // max seconds to wait until reading again.
 
 state lastState, currentState, nextState;
-int timeLeft;
-int startTime;
+unsigned long startTime;
 int globalScore;
-int startWAIT_SUBGAMETime;
+unsigned long startWAIT_SUBGAMETime;
 uint8_t lastGameScore;
 uint8_t currentGameAddress;
 bool shouldEND_SUBGAME;
@@ -32,7 +33,7 @@ game currentGame;
 char buff[17];
 
 // For cycling through currentGame
-uint16_t game_ctr = 0;
+uint16_t game_ctr;
 game test_games[] = { NONE, NONE,NONE,NONE, NONE, NONE, NONE, NONE, NONE, NONE }; // add extra entries to prevent array out of bounds access 
 
 // uint8_t n_test_games = sizeof(test_games)/sizeof(int);
@@ -72,7 +73,7 @@ void calculateNextState() {
       }
     case END_SUBGAME:
       {
-        if (millis() - startTime >= MAXTIME * 1000UL) nextState = END_ALL_GAMES;
+        if (millis() - startTime >= (MAXTIME * 1000UL)) nextState = END_ALL_GAMES;
         else nextState = START_SUBGAME;
         break;
       }
@@ -95,16 +96,25 @@ void calculateNextState() {
 }
 
 
-
 void executeCurrentState() {
   switch (currentState) {
     case INIT:  // the start of one series of subgames
       {
         blinkLED(2, 50);
-        timeLeft = MAXTIME;
-        startTime = millis() / 1000;
+        startTime = millis();
         globalScore = 0;
-        Serial.println("init state");
+        game_ctr = 0;
+        InitializeLEDPins();
+        
+        // Testing only
+        TestAllLEDPins();
+
+        InitTimer();
+        drawTimingStrip(MAXTIME, MAXTIME);
+        Serial.println("init state"); 
+        log("Done init");
+        snprintf(buff, 16, "ST%d", startTime);
+        log(buff);
         break;
       }
     case START_SUBGAME:
@@ -115,7 +125,6 @@ void executeCurrentState() {
 
         // go through games under test only
         currentGame = test_games[game_ctr];
-        game_ctr++;
 
         // reset to 0 based on NONE boundary logic in test_games array
         if(currentGame == NONE){
@@ -123,6 +132,7 @@ void executeCurrentState() {
           currentGame = test_games[game_ctr];
         }
 
+        game_ctr++;
 
         //rand()%NUM_GAMES;                                // rand()%NUM_GAMES;         // get a random number % NUM_GAMES
         currentGameAddress = gameToi2cAddress(currentGame);  // get address for game
@@ -139,17 +149,10 @@ void executeCurrentState() {
         Wire.write('S');  // START GAME CMD. TODO: Add difficulty (char)('S' + difficulty)
         Wire.endTransmission();
 
-        // EXPERIMENT - Dump i2c bus constantly
-        // for (;;) {
-        //   Serial.println("Checking i2c bus for signal");
-        //   while (Wire.available()) {
-        //     uint8_t read_val = Wire.read();
-        //     Serial.print("\t[DEBUG] i2c bus dump: ");
-        //     Serial.println(read_val);
-        //     Serial.flush();
-        //   }
-        // }
-
+        SetLEDForGame(currentGame, false, true);
+        drawTimingStrip(MAXTIME-((millis() - startTime)/1000UL), MAXTIME);
+        snprintf(buff, 16, "T=%d", MAXTIME-((millis() - startTime)/1000UL));
+        log(buff);
         delay(1000);  // don't tx start to subgame then immediately request. wait some minimum prewarm time.
         break;
       }
@@ -165,6 +168,9 @@ void executeCurrentState() {
         // startWAIT_SUBGAMETime = millis();
         // while (millis() - startWAIT_SUBGAMETime < MAX_WAIT_GAME_TIME * 1000 /*ms to s*/) {
         Serial.println("Awaiting subgame");  //this is getting spammed.
+        snprintf(buff, 16, "T=%d", MAXTIME-((millis() - startTime)/1000UL));
+        log(buff);
+        drawTimingStrip(MAXTIME-((millis() - startTime)/1000UL), MAXTIME);
 
 // char buff2 [32];
 // sprintf(buff2, "wait sg %x", currentGameAddress);
@@ -246,6 +252,9 @@ void executeCurrentState() {
         Serial.print("Last game score");
         Serial.println(lastGameScore);
 
+        SetLEDForGame(currentGame, false, false);
+
+
         // write through to leaderboard and update quickly.
         Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
         Wire.write('U');                            // Send "update score command" to leaderboard
@@ -264,6 +273,17 @@ void executeCurrentState() {
       }
     case END_ALL_GAMES:
       {
+        // Because transition from  write U+SCORE to leaderboard to 
+        // end all is immediate, need a delay for leaderboard to update 
+        // its score for the final game played, before
+        // telling it we're done - there are delays in leaderboard 
+        // update score and this must exceed those delays 
+
+        delay(1000);
+
+        #ifdef LOGGING
+        log("END ALL");
+        #endif
         Wire.beginTransmission(leaderbrd_address);  // LEADERBOARD ADDRESS
         Wire.write('F');                            // Send "Game Is Over" to leaderboard
         Wire.write(0);                              // Any random number. To keep consistent 2 bytes.
@@ -275,14 +295,23 @@ void executeCurrentState() {
       }
     case WAIT_LDRBRD:
       {
+        SetLEDForLeaderboard(false, true);
+        log("WAIT_LBD");
         // wait until the user has put their name in. timeout if they abandon?
-        while (1) {  // assume finalize confimration is sent eventually
+        while(1){
+          Wire.requestFrom(leaderbrd_address, (size_t)1);  // request 1 byte from leaderboard
           while (Wire.available()) {
             char leaderboardResponse = Wire.read();
             Serial.print(leaderboardResponse);
-            shouldCleanup = true;
+            if(leaderboardResponse == 0x00) {
+              // done signal
+              shouldCleanup = true;
+            } // sends 0xFF if not done
           }
+          if (shouldCleanup) break;
         }
+
+        SetLEDForLeaderboard(false, false);   
         break;
       }
     case CLEANUP:
@@ -310,9 +339,6 @@ void setup() {
   getConnectedGames(test_games); // autodiscover games, fill in test_games with non NONE left to right.
   log("autoscan ok");
 #endif
-
-  // first_161_filter = true;
-  // Allow other subgames to warm up and boot
   delay(1000);
 }
 
