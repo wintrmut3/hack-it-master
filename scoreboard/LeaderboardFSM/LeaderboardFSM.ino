@@ -8,6 +8,8 @@
 #define I2C_SLAVE_ADDRESS 0x10
 //#define RESET_LEADERBOARD_SWITCH // uncomment and upload to run reset program
 
+bool force_leaderboard_reset_at_startup = false; // hold key accept + key select at startup to reset
+
 /*
  Now we need a LedControl to work with.
  ***** These pin numbers will probably not work with your hardware *****
@@ -815,6 +817,9 @@ void setup() {
 
   pinMode(KEY_ACCEPT, INPUT_PULLDOWN);
   pinMode(KEY_SELECT, INPUT_PULLDOWN);
+
+  force_leaderboard_reset_at_startup = digitalRead(KEY_ACCEPT) && digitalRead(KEY_SELECT);
+
   pinMode(LED_BUILTIN, OUTPUT);
 
   blinkLED(5, 50);  // rapid blink on startup
@@ -881,7 +886,7 @@ void setup() {
   //Serial.println("\nTest complete");
 
   // Reset Leaderboard Code - Uncomment below, Comment initializeLeaderboard() and loop code
-#ifdef RESET_LEADERBOARD_SWITCH
+if(force_leaderboard_reset_at_startup){
   //Serial.println("Resetting leaderboard!");
   char nameToStore[] = "aaa";
   char playerScoreString[] = "0000";
@@ -894,7 +899,7 @@ void setup() {
 
   writeFile(fileName2, nameToStore, sizeof(nameToStore));
   appendFile(fileName2, playerScoreString, sizeof(playerScoreString));
-#endif
+}
 
   Wire.begin(I2C_SLAVE_ADDRESS);  // start as address 0x33
   Wire.onReceive(I2C_RxHandler);
@@ -905,9 +910,11 @@ void setup() {
 }
 
 void loop() {
-#ifndef RESET_LEADERBOARD_SWITCH
+  
+  // if we reset 
+  if(force_leaderboard_reset_at_startup) return;
+
   executeCurrentState();
-#endif
   // if (globalReset) {
   //   globalReset = false;
   //   initializeLeaderboard();

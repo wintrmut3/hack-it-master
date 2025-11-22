@@ -17,7 +17,7 @@
 #include "scanner.h"
 #endif
 
-#define MAXTIME 15             // Max game runtime in seconds [testing - set to 1000. ]
+#define MAXTIME 15             // Max hackit all-game runtime in seconds [testing - set to 1000. ]
 #define MAX_WAIT_GAME_TIME 2  // max seconds to wait until reading again.
 
 state lastState, currentState, nextState;
