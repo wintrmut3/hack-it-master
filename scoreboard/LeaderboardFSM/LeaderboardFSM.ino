@@ -33,7 +33,7 @@ int currentDisplay = 7;
 // char displayName[3] = { 'a', 'a', 'a' };
 char defaultName[] = "aaa";
 // int playerScore = 3456;
-int playerScore = 0;
+int playerScore; 
 char playerScoreString[4];
 char fileName0[] = MBED_LITTLEFS_FILE_PREFIX "/leaderboard0.txt";
 char fileName1[] = MBED_LITTLEFS_FILE_PREFIX "/leaderboard1.txt";
@@ -162,8 +162,12 @@ void executeCurrentState() {
       {
         //Serial.println("INITIALIZE State");
         initializeLeaderboard();
+        playerScore = 0;
         delay(100);
         currentState = UPDATE_SCORE;
+        for(int i =0; i < 3 ; i++){
+          currentIndex[i] =0;// reset input character at each pos to 'A'
+        }
         return;
       }
 
@@ -176,6 +180,7 @@ void executeCurrentState() {
           // continuously read from / poll the i2c mailbox, if a fresh message is there then handle it.
           if (i2c_mailbox.isFreshData) {
             // process and set fresh flag to false so we don't re-read it
+             i2c_mailbox.isFreshData = false;  // remember to unset the mailbox flag
             if (i2c_mailbox.scoreUpdate >= 0) {
               // a score was recieved but the game continues
               int scoreReceived = i2c_mailbox.scoreUpdate;
@@ -187,12 +192,14 @@ void executeCurrentState() {
 
             } else {
               //Serial.println("GAME OVER - Exiting UPDATE_SCORE state");
+              // if isFreshData && scoreUpdate < 0 (set to -1 on complete command)
               break;
             }
-            i2c_mailbox.isFreshData = false;  // remember to unset the mailbox flag
           }
           delay(100);
         }
+
+        // transition out 
         currentState = PLAYER_INPUT;
         return;
       }

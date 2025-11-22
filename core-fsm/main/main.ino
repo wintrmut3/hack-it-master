@@ -22,7 +22,7 @@
 
 state lastState, currentState, nextState;
 unsigned long startTime;
-int globalScore;
+int globalScore; // we only transfer delta to leaderboard 
 unsigned long startWAIT_SUBGAMETime;
 uint8_t lastGameScore;
 uint8_t currentGameAddress;
