@@ -46,6 +46,9 @@ LittleFS_MBED *myFS;
 int globalReset = false;
 unsigned long delaytime = 2000;
 unsigned long scanDelay = 200;
+bool cursorVisible = true;
+unsigned long lastBlinkTime = 0;
+const unsigned long blinkInterval = 500;
 
 enum States {
   INITIALIZE,
@@ -201,6 +204,19 @@ void executeCurrentState() {
         //Serial.println("PLAYER_INPUT State");
         // 30s fallback
         while (millis()-playerInputTOStart < playerInputTOMax) {
+          // blink logic
+          unsigned long currentTime = millis();
+          if (currentTime - lastBlinkTime >= blinkInterval) {
+            cursorVisible = !cursorVisible;
+            lastBlinkTime = currentTime;
+            if (cursorVisible) {
+              char currentChar = returnLetter(currentIndex[7 - currentDisplay]);
+              displayValue(currentDisplayBoard, currentDisplay, currentChar, false);
+            } else {
+              currentDisplayBoard.setRow(0, currentDisplay, 0);
+            }
+          }
+
           Scan_Key();
           delay(scanDelay);
 
@@ -255,6 +271,7 @@ void initializeLeaderboard() {
 
   updatePlayerScoreString();
 
+  lastBlinkTime = millis();
 
   leaderboardScores[0] = readFileScore(fileName0);
   leaderboardScores[1] = readFileScore(fileName1);
@@ -391,7 +408,14 @@ void Scan_Key() {
   if (digitalRead(KEY_ACCEPT) == 1) {
     //Serial.print("Accept Key Pressed\n");
     if (currentDisplay > 5) {
+      int oldDisplay = currentDisplay;
       currentDisplay--;
+      // show final char at old position
+      char finalChar = returnLetter(currentIndex[7 - oldDisplay]);
+      displayValue(currentDisplayBoard, oldDisplay, finalChar, false);
+      // reset blink for new position
+      cursorVisible = true;
+      lastBlinkTime = millis();
     } else if (currentDisplay == 5) {
       char nameToStore[] = "aaa";
       int i = 0;
@@ -521,6 +545,8 @@ void Scan_Key() {
       currentIndex[7 - currentDisplay] = 0;
       displayValue(currentDisplayBoard, currentDisplay, 'a', false);
     }
+    cursorVisible = true;
+    lastBlinkTime = millis();
   }
 }
 
