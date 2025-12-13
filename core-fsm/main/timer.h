@@ -9,17 +9,21 @@ void InitTimer() {
 }
 
 void drawTimingStrip(int remainingTime, int maxTime){
-  float normTime = (remainingTime * 1.0f/maxTime)*NUM_LEDS; // [0,NUM_LEDs)
-  // float del = normTime - (int) normTime;
-  // normTime = del < 0.5 ? (int) normTime : ((int)normTime +1);
-  // int lastDrawnLED =  normtime * NUM_LEDS;
+  float frac = remainingTime / float(maxTime);     // 1.0 → 0.0
+  float ledFloat = frac * NUM_LEDS;                // number to fill
 
-  for (int i= 0; i < NUM_LEDS; i++){
-    if (i < normTime){
-    leds[i] = CRGB::White; FastLED.show();
-    }
-    else{
-      leds[i] = CRGB::Black; FastLED.show();
+  for (int i=0; i < NUM_LEDS; i++) {
+
+    // Compute smooth color from green → red
+    uint8_t red   = (1.0f - frac) * 255;
+    uint8_t green = frac * 255;
+    uint8_t blue  = 0;
+
+    if (i < ledFloat) {
+      leds[i] = CRGB(red, green, blue);  // active LEDs colored
+    } else {
+      leds[i] = CRGB::Black;             // rest off
     }
   }
+  FastLED.show();
 }

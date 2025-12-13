@@ -3,7 +3,8 @@
 
 //initialize these. game test_games[] = { CART, CATCHIT};
 // returns number of connected games found
-int getConnectedGames(game* connectedGames) {
+// if shuffleSubgames = true (defined in main.ino) then shuffle order before return.
+int getConnectedGames(game* connectedGames, bool shuffleSubgames) {
 
   int wptr = 0;
   Serial.println("Scanning...");
@@ -40,6 +41,23 @@ int getConnectedGames(game* connectedGames) {
       Serial.println(address, HEX);
     }
   }
+
+  // early exit if not shuffling
+  if(!shuffleSubgames) return wptr; 
+
+  // subgame durstenfeld shuffler
+  // at this point wptr = num_connected_games
+  // connectedGames is filled up to num_connected_games elements [0, num_connected_games)
+  randomSeed(analogRead(0));
+  long randidx;
+  for(int i = wptr-1; i >=1; i--){
+    randidx = random(i+1); // [0, i]
+    int curridx = i;
+    // swap
+    game tmp = connectedGames[curridx]; // copy value?
+    connectedGames[curridx] = connectedGames[randidx];
+    connectedGames[randidx] = tmp;
+  }
+
   return wptr;
-  // return connectedGames; // return is inplace
 }

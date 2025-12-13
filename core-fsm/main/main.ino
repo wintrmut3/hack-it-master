@@ -17,8 +17,10 @@
 #include "scanner.h"
 #endif
 
-#define MAXTIME 15             // Max hackit all-game runtime in seconds [testing - set to 1000. ]
+#define MAXTIME 120             // Max hackit all-game runtime in seconds [testing - set to 1000. ]
 #define MAX_WAIT_GAME_TIME 2  // max seconds to wait until reading again.
+#define START_LED_PIN 10
+#define SHUFFLE_SUBGAMES 1  // huffle subgames
 
 state lastState, currentState, nextState;
 unsigned long startTime;
@@ -325,9 +327,10 @@ void executeCurrentState() {
 void setup() {
   // first time setup only, PWRON state
   Wire.begin();
-
   Serial.begin(9600);
-  
+
+  pinMode(START_LED_PIN, OUTPUT);
+  digitalWrite(START_LED_PIN, HIGH);
   currentState = INIT;
 #ifdef LOGGING
   initLogger();
@@ -336,9 +339,10 @@ void setup() {
 
 #ifdef AUTOSCAN
   delay(1000); //allow subgames to complete i2c initialization
-  getConnectedGames(test_games); // autodiscover games, fill in test_games with non NONE left to right.
+  getConnectedGames(test_games, SHUFFLE_SUBGAMES); // autodiscover games, fill in test_games with non NONE left to right.
   log("autoscan ok");
 #endif
+
   delay(1000);
 }
 
