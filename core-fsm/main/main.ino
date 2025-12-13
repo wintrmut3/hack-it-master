@@ -24,7 +24,8 @@
 
 state lastState, currentState, nextState;
 unsigned long startTime;
-int globalScore; // we only transfer delta to leaderboard 
+unsigned long lastSubgameWaitCommandTime = 0;
+int globalScore; // we only transfer delta to leaderboard
 unsigned long startWAIT_SUBGAMETime;
 uint8_t lastGameScore;
 uint8_t currentGameAddress;
@@ -174,43 +175,24 @@ void executeCurrentState() {
         log(buff);
         drawTimingStrip(MAXTIME-((millis() - startTime)/1000UL), MAXTIME);
 
-// char buff2 [32];
-// sprintf(buff2, "wait sg %x", currentGameAddress);
-// log(buff2);
+        // we want this to be nonblocking, so instead of a delay to prevent spam, 
+        // early break with timer calculation;
+        if ((millis()-lastSubgameWaitCommandTime) < MAX_WAIT_GAME_TIME * 1000UL)
+        {
+          break;
+        }
+
+        // Otherwise - request command.
+        lastSubgameWaitCommandTime = millis();
+
+
+
 #ifdef LOGGING
         log("wait sg");
 #endif
-        // Serial.println(millis());
-        // Serial.println(startWAIT_SUBGAMETime);
-
-        blinkLED(4);
-
-        // flush the bus - invariant here is that nothing should be on the bus
-        // while (Wire.available()) {
-        //   Wire.read();
-        // }
-
-        // EXPERIMENT - keep requesting off a bus with nothing on it but i2c dev connected.
-        // for (;;) {
-        //   Serial.println("Checking i2c bus for signal");
-
-        //   Wire.requestFrom(currentGameAddress, (uint8_t)8, (uint8_t)1); 
-        //   delay(1000);
-          
-        //   while (Wire.available()) {
-        //     uint8_t read_val = Wire.read();
-        //     Serial.print("\t[DEBUG] i2c bus dump: ");
-        //     Serial.println(read_val);
-        //     Serial.flush();
-        //   }
-        // }
-
+       
         Wire.requestFrom(currentGameAddress, (size_t)1);  // will trigger interrupt to callback onRequest on slave for 1 byte.
-                                                          // slave should respond with 0XFF if it's not done.
-
-        // if it doesn't get data on the bus, is it 161?
-        // No - it looks like if there's nothing; requestFrom doesn't populate the buffer with 161 and instead
-        // wire.available = false
+                                                          // slave should respond with 0XFF if it's not done
 
         while (Wire.available()) {
           // no commands sent from slave - > master.
@@ -218,29 +200,18 @@ void executeCurrentState() {
 
           lastGameScore = (uint8_t)Wire.read();  // if read 0xFF then it's not done. otherwise, transition out.
 
-          // if (lastGameScore == 161 && first_161_filter) {
-          //   first_161_filter = false;
-          //   lastGameScore = 0;
-          //   while (Wire.available()) {
-          //     Wire.read();
-          //   }
-          //   break;
-          // }
-
           if (lastGameScore != 0xff) {
             shouldEND_SUBGAME = true;
-            // blinkLED(10, 50);
-
 #ifdef LOGGING
             snprintf(buff, 16, "sg@%x: +%d", currentGameAddress, lastGameScore);
-            log(buff);  // prints "test 2^1 = 2" ...etc
+            log(buff);  // 
 #endif
           }
-        }
+        } // end wire read
 
-        if (!shouldEND_SUBGAME) {
-          delay(MAX_WAIT_GAME_TIME * 1000);  // only delay if we got NOT READY response to let the slave continue
-        }
+        // if (!shouldEND_SUBGAME) {
+        //   delay(MAX_WAIT_GAME_TIME * 1000);  // only delay if we got NOT READY response to let the slave continue
+        // }
 
         // }
         break;
