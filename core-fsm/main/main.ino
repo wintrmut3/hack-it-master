@@ -17,10 +17,11 @@
 #include "scanner.h"
 #endif
 
-#define MAXTIME 120             // Max hackit all-game runtime in seconds [testing - set to 1000. ]
+#define MAXTIME 60             // Max hackit all-game runtime in seconds [testing - set to 1000. ]
 #define MAX_WAIT_GAME_TIME 2  // max seconds to wait until reading again.
 #define START_LED_PIN 10
 #define SHUFFLE_SUBGAMES 1  // huffle subgames
+#define BONUS_TIME_PER_SUBGAME 4000 // chess clock +X ms
 
 state lastState, currentState, nextState;
 unsigned long startTime;
@@ -32,6 +33,7 @@ uint8_t currentGameAddress;
 bool shouldEND_SUBGAME;
 bool shouldCleanup;
 game currentGame;
+int world_difficulty = 0;
 
 char buff[17];
 
@@ -76,7 +78,7 @@ void calculateNextState() {
       }
     case END_SUBGAME:
       {
-        if (millis() - startTime >= (MAXTIME * 1000UL)) nextState = END_ALL_GAMES;
+        if ( (millis()>startTime) && (millis() - startTime) >= (MAXTIME * 1000UL)) nextState = END_ALL_GAMES;
         else nextState = START_SUBGAME;
         break;
       }
@@ -118,6 +120,8 @@ void executeCurrentState() {
         log("Done init");
         snprintf(buff, 16, "ST%d", startTime);
         log(buff);
+
+        world_difficulty = 0;
         break;
       }
     case START_SUBGAME:
@@ -126,14 +130,21 @@ void executeCurrentState() {
         // currentGame = (enum game)(game_ctr % NUM_GAMES);
         // game_ctr++;
 
-        // go through games under test only
-        currentGame = test_games[game_ctr];
+        // save last game for animation
+        game lastGame = currentGame;
 
+        // go through connected games only
+        currentGame = test_games[game_ctr];
         // reset to 0 based on NONE boundary logic in test_games array
         if(currentGame == NONE){
           game_ctr = 0;
           currentGame = test_games[game_ctr];
+          world_difficulty++;
+          if (world_difficulty >= 7) world_difficulty=7;
         }
+
+        // clearer signalling to show which game is next.
+        RotateAllGameLEDs(lastGame, currentGame);  
 
         game_ctr++;
 
@@ -149,7 +160,7 @@ void executeCurrentState() {
 #endif
 
         Wire.beginTransmission(currentGameAddress);
-        Wire.write('S');  // START GAME CMD. TODO: Add difficulty (char)('S' + difficulty)
+        Wire.write((char)('S'+ world_difficulty));  // START GAME CMD. TODO: Add difficulty (char)('S' + difficulty)
         Wire.endTransmission();
 
         SetLEDForGame(currentGame, false, true);
@@ -225,7 +236,15 @@ void executeCurrentState() {
         Serial.print("Last game score");
         Serial.println(lastGameScore);
 
-        SetLEDForGame(currentGame, false, false);
+        startTime += BONUS_TIME_PER_SUBGAME; // chess clock (120+5)
+
+        // blink LED based on score - red if 0, green if 1
+        for(int i =0;i<3;i++){
+          SetLEDForGame(currentGame, lastGameScore==0, lastGameScore>0);
+          delay(100);
+          SetLEDForGame(currentGame, false, false);
+          delay(100);
+        }
 
 
         // write through to leaderboard and update quickly.
@@ -254,6 +273,10 @@ void executeCurrentState() {
 
         delay(1000);
 
+        // blink all games RED to signal game over
+        BlinkAllLEDPins(true, false, 4);
+
+
         #ifdef LOGGING
         log("END ALL");
         #endif
@@ -268,7 +291,7 @@ void executeCurrentState() {
       }
     case WAIT_LDRBRD:
       {
-        SetLEDForLeaderboard(false, true);
+        SetLEDForLeaderboard(true, true); //Green on leaderboard is broken...
         log("WAIT_LBD");
         // wait until the user has put their name in. timeout if they abandon?
         while(1){

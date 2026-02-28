@@ -16,6 +16,8 @@ The red index is always green index -1
 #pragma once
 #include "names.h"
 
+void SetLEDForGame(game g, bool showRed, bool showGreen);
+
 void InitializeLEDPins(){
   for(uint8_t pin = 42; pin <=53; pin++){
     pinMode(pin, OUTPUT);
@@ -27,8 +29,22 @@ void InitializeLEDPins(){
 void TestAllLEDPins(){
   for(uint8_t ppin = 42; ppin <=53; ppin++){
     digitalWrite(ppin, LOW);
-    delay(200);
+    delay(125);
     digitalWrite(ppin, HIGH);
+  }
+}
+
+void BlinkAllLEDPins(bool showRed, bool showGreen, int nLoops){
+  // return to false afterwards
+  for(int loop = 0; loop < nLoops; loop++){
+    for(int i = 0 ; i < NUM_GAMES; i++){
+      SetLEDForGame((game)i, showRed, showGreen);
+    }
+    delay(100);
+    for(int i = 0 ; i < NUM_GAMES; i++){
+      SetLEDForGame((game)i, false, false);
+    }
+    delay(100);
   }
 }
 
@@ -55,4 +71,22 @@ void SetLEDForGame(game g, bool showRed, bool showGreen){
 
     digitalWrite(basePin, !showRed);
     digitalWrite(basePin+1, !showGreen);
+}
+
+// Do one loop starting at g_start_at -> g_start_at, then stop at g_stop_at
+void RotateAllGameLEDs(game g_start_at, game g_stop_at){
+  uint16_t delay_t = 77;
+
+  int distance = ((int)g_stop_at - (int)g_start_at + NUM_GAMES) % NUM_GAMES;
+  int n_steps = NUM_GAMES + distance;
+
+  for(int i = 0; i < n_steps; i++){
+    int index = ((int)g_start_at + i) % NUM_GAMES;
+    game lit_game = (game)index;
+
+    SetLEDForGame(lit_game, true, false);
+    delay(delay_t);
+    SetLEDForGame(lit_game, false, false);
+    delay(delay_t);
+  }
 }

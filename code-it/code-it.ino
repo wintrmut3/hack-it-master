@@ -15,7 +15,7 @@
  We have only a single MAX72XX. (x=1)
  */
 // LedControl lc = LedControl(23, 12, 14, 1);
-LedControl lc = LedControl(13, 12, 11, 1);
+LedControl lc = LedControl(7, 12, 11, 1);
 
 /* we always wait a bit between updates of the display */
 unsigned long delaytime = 250;
@@ -49,7 +49,7 @@ void displayString(String num) {
   }
 }
 
-int FLASHING_DELAY = 1000;  // How long we delay flashing numbers
+int FLASHING_DELAY = 500;  // How long we delay flashing numbers
 
 // Define keyboard layout using Keypad.h
 const byte ROWS = 3;
@@ -95,7 +95,11 @@ int difficulty = 7;
  */
 uint8_t score = 0;
 
-int I2C_ADDRESS = 0xC; 
+unsigned long lastFlash = 0;
+int flashInterval = 200;
+bool showUnentered = false;
+
+int I2C_ADDRESS = 0xC;
 
 void setup() {
   #ifdef USE_SERIAL
@@ -119,6 +123,15 @@ void setup() {
   lc.setIntensity(0, 8);
   /* and clear the display */
   lc.clearDisplay(0);
+
+  // Flash through each segment
+  for(int seg = 0; seg < 8; seg++) {
+    for(int digit = 0; digit < 8; digit++) {
+      lc.setLed(0, digit, seg, true);
+    }
+    delay(50);
+    lc.clearDisplay(0);
+  }
 
   // Initialize state
   state = GAME_IDLE;
@@ -148,6 +161,14 @@ void loop() {
       state = START_GAME;
     }
     #endif
+  for(int seg = 0; seg < 8; seg++) {
+    for(int digit = 0; digit < 8; digit++) {
+      lc.setLed(0, digit, seg, true);
+    }
+    delay(50);
+    lc.clearDisplay(0);
+  }
+    
 
   } else if (state == START_GAME) {
     // Reset the score
@@ -181,6 +202,23 @@ void loop() {
     // Proceed to next state
     state = INPUT_PHASE;
   } else if (state == INPUT_PHASE) {
+    // Animation timer
+    if (millis() - lastFlash >= flashInterval) {
+      lastFlash = millis();
+      showUnentered = !showUnentered;
+    }
+
+    // Update display
+    int unentered = (difficulty + 1) - num.length();
+    String display = "";
+    if (showUnentered) {
+      for (int i = 0; i < unentered; i++) {
+        display += '-';
+      }
+    }
+    display += num;
+    displayString(display);
+
     // Read user input and display on screen, detect if 8 values are filled in
     char keyPressed = kp.getKey();
     if (keyPressed && keyPressed >= (char)'1' && keyPressed <= (char)'9') {
@@ -189,7 +227,6 @@ void loop() {
       Serial.print("Actual input: ");
       Serial.println(num);
       #endif
-      displayString(num);
     
     }
 

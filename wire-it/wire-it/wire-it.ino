@@ -32,9 +32,9 @@ struct mailbox {
   int score;
   bool ready;
 };
-struct mailbox mailbox;
-state current_state, next_state;
-int should_start_game = 0;
+volatile struct mailbox mailbox;
+volatile state current_state, next_state;
+volatile int should_start_game = 0;
 void OnWireRequest();
 void OnWireReceive();
 
@@ -223,7 +223,7 @@ void OnWireRequest() {
 
 void OnWireReceive() {
   char c = Wire.read();
-  if (c == 'S' || c == 'T' || c== 'U') {
+  if (c >= 'S' && c <= "Z") {
     // start game
     should_start_game = true;
     // how does difficulty transmission work?

@@ -261,7 +261,7 @@ void OnWireRequest() {
 }
 void OnWireReceive() {
   char c = Wire.read();
-  if (c == 'S') {
+  if (c >= 'S' && c <= 'Z') {
     // start game
     should_start_game = true;
   }

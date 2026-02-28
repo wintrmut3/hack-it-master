@@ -319,11 +319,11 @@ void loop() {
           }
           // Player caught the dot
           if (oneDotCount == 1) {
-            score++;
+            score+= 25;
             // speed up every 8 score
-            if (score % 8 == 0) {
+            // if (score % 1 == 0) {
               gameSpeed -= 5;
-            }
+            // }
             // bottom clamp game speed
             if (gameSpeed <= 15) {
               gameSpeed = 15;
