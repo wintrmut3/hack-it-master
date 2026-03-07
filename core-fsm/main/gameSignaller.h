@@ -75,7 +75,7 @@ void SetLEDForGame(game g, bool showRed, bool showGreen){
 
 // Do one loop starting at g_start_at -> g_start_at, then stop at g_stop_at
 void RotateAllGameLEDs(game g_start_at, game g_stop_at){
-  uint16_t delay_t = 77;
+  uint16_t delay_t = 150;
 
   int distance = ((int)g_stop_at - (int)g_start_at + NUM_GAMES) % NUM_GAMES;
   int n_steps = NUM_GAMES + distance;

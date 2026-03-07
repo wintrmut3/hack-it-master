@@ -427,9 +427,9 @@ void showIdlePattern(){
 
   // Loop through all pixels and light them in a rotating pattern with varying brightness
   for (int i = 0; i < NUMPIXELS; i++) {
-    int brightness = map(i, 0, NUMPIXELS - 1, 50, 255); // Vary brightness from low to high
-    int hue = (i * 255 / NUMPIXELS + currentIndex * 5) % 255; // Smooth hue rotation effect
-    pixels.setPixelColor(i, 0, hue*brightness*1.0/255, 0);  // Use custom Wheel function to generate the color
+    int brightness = map(currentIndex, 0, 255, 0, 64); // Vary brightness from low to high
+    // int hue = (i * 255 / NUMPIXELS + currentIndex * 5) % 255; // Smooth hue rotation effect
+    pixels.setPixelColor(i, 0, brightness, brightness/2);  // Use custom Wheel function to generate the color
   }
 
   pixels.show();  // Update the LEDs
